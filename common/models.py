@@ -11,6 +11,7 @@ class User(ldapdb.models.Model):
     uid = CharField(db_column='uid', max_length=200, primary_key=True)
     cn = CharField(db_column='cn', max_length=200)
     sn = CharField(db_column='sn', max_length=200)
+    keyFingerPrint = CharField(db_column='keyFingerPrint', max_length=200)
 
     def __str__(self):
         return self.uid
