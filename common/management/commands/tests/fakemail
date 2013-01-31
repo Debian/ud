@@ -1,0 +1,20 @@
+#!/usr/bin/env python
+
+import argparse
+from email.mime.text import MIMEText
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument('recipient')
+parser.add_argument('-s', '--subject')
+args = parser.parse_args()
+
+msg = MIMEText(sys.stdin.read())
+msg['Subject'] = args.subject
+msg['From'] = 'lfilipoz@emyr.net'
+msg['Reply-To'] = 'lfilipoz@debian.org'
+msg['To'] = args.recipient
+
+print msg.as_string()
+
+# vim: set ts=4 sw=4 et si:
