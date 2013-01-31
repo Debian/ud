@@ -1,5 +1,7 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
+from django.core.exceptions import ValidationError
+
 from IPy import IP
 from pyparsing import Keyword, LineEnd, LineStart, NoMatch, ParseException, Regex, Word
 from pyparsing import alphas, alphanums, hexnums, nums
@@ -13,6 +15,10 @@ def is_valid_hostname(hostname):
         hostname = hostname[:-1] # strip exactly one dot from the right, if present
     allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in hostname.split("."))
+
+class MailGateException(Exception):
+    def __init__(self, message):
+        super(MailGateException, self).__init__(message)
 
 class MailGate:
     def __init__(self):
@@ -171,7 +177,7 @@ class MailGate:
                 break
             try:
                 self.grammar.parseString(line)
-            except ParseException:
+            except MailGateException:
                 commit = False
 
         # commit the changes
@@ -191,8 +197,12 @@ class MailGate:
 
     def failure(self, s, loc, expr, err):
         self.result.append('> %s' % s)
-        self.result.append('nak: %s' % err)
-        raise ParseException(err)
+        if type(err) == ValidationError:
+            for message in err.messages:
+                self.result.append('nak: %s' % message)
+        else:
+            self.result.append('nak: %s' % err)
+        raise MailGateException('mailgate error')
 
     def do_delete(self, s, loc, tokens):
         try:
