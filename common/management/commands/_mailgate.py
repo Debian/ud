@@ -161,8 +161,8 @@ class MailGate:
         self.grammar.setFailAction(self.failure)
 
     def process_commands(self, user, commands):
+        self.user = user
         self.result = []
-        self.directives = [] # TODO
 
         # process the commands
         commit = True
@@ -192,11 +192,12 @@ class MailGate:
     def failure(self, s, loc, expr, err):
         self.result.append('> %s' % s)
         self.result.append('nak: %s' % err)
+        raise ParseException(err)
 
     def do_delete(self, s, loc, tokens):
         try:
             key = tokens[1]
-            self.directives.append((ldap.MOD_DELETE, key)) # TODO
+            self.delete(key)
             self.success(s, 'do delete: %s' % (key))
         except Exception as err:
             self.failure(s, loc, None, err)
@@ -204,7 +205,7 @@ class MailGate:
     def do_show(self, s, loc, tokens):
         try:
             self.success(s, 'do show')
-            self.result.append(self.user)
+            #self.result.append(self.user)
         except Exception as err:
             self.failure(s, loc, None, err)
 
@@ -218,7 +219,7 @@ class MailGate:
         try:
             key = tokens[1]
             val = tokens[2]
-            self.directives.append((ldap.MOD_REPLACE, key, val)) # TODO
+            self.user.update(key, val)
             self.success(s, "do update: %s <- '%s'" % (key, val))
         except Exception as err:
             self.failure(s, loc, None, err)
@@ -233,7 +234,7 @@ class MailGate:
             if address.version() != 4:
                 raise Exception("'%s' is not a valid IPv4 address" % address)
             val = ('%s IN A %s') % (name, address)
-            self.directives.append((ldap.MOD_REPLACE, key, val)) # TODO
+            self.user.update_list(key, val)
             self.success(s, "do update: %s <- '%s'" % (key, val))
         except Exception as err:
             self.failure(s, loc, None, err)
@@ -248,7 +249,7 @@ class MailGate:
             if address.version() != 6:
                 raise Exception("'%s' is not a valid IPv6 address" % address)
             val = ('%s IN AAAA %s') % (name, address)
-            self.directives.append((ldap.MOD_REPLACE, key, val)) # TODO
+            self.user.update_list(key, val)
             self.success(s, "do update: %s <- '%s'" % (key, val))
         except Exception as err:
             self.failure(s, loc, None, err)
@@ -263,7 +264,7 @@ class MailGate:
             if not is_valid_hostname(cname):
                 raise Exception("'%s' is not a valid hostname" % cname)
             val = ('%s IN CNAME %s') % (name, cname)
-            self.directives.append((ldap.MOD_REPLACE, key, val)) # TODO
+            self.user.update_list(key, val)
             self.success(s, "do update: %s <- '%s'" % (key, val))
         except Exception as err:
             self.failure(s, loc, None, err)
@@ -279,7 +280,7 @@ class MailGate:
             if not is_valid_hostname(exchange):
                 raise Exception("'%s' is not a valid hostname" % exchange)
             val = ('%s IN MX %s %s') % (tokens[2], preference, exchange)
-            self.directives.append((ldap.MOD_REPLACE, key, val)) # TODO
+            self.user.update_list(key, val)
             self.success(s, "do update: %s <- '%s'" % (key, val))
         except Exception as err:
             self.failure(s, loc, None, err)
@@ -292,7 +293,7 @@ class MailGate:
                 raise Exception("'%s' is not a valid label" % name)
             txtdata = tokens[5]
             val = ('%s IN TXT %s') % (name, txtdata)
-            self.directives.append((ldap.MOD_REPLACE, key, val)) # TODO
+            self.user.update_list(key, val)
             self.success(s, "do update: %s <- '%s'" % (key, val))
         except Exception as err:
             self.failure(s, loc, None, err)
@@ -301,7 +302,7 @@ class MailGate:
         try:
             key = tokens[1]
             val = {'male': 1, 'female': 2, 'unspecified': 9}[tokens[2]]
-            self.directives.append((ldap.MOD_REPLACE, key, val)) # TODO
+            self.user.update(key, val)
             self.success(s, "do update: %s -< '%s'" % (key, val))
         except Exception as err:
             self.failure(s, loc, None, err)

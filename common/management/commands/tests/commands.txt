@@ -1,14 +1,9 @@
 show
 reset password
-update c CA
-update l Prince George
-update facsimileTelephoneNumber +1 (604) 822-5375
+update bATVToken token
+update birthDate 19710420
+update c ca
 update dnsZoneEntry foo IN CNAME www.example.com.
-update dnsZoneEntry foo IN A 1.2.3.4
-update dnsZoneEntry foo IN A 1.2.3.4.5
-update dnsZoneEntry foo IN A 1.2.3.999
-update dnsZoneEntry foo.bar IN A 1.2.3.4
-update dnsZoneEntry foo.debian.net IN A 1.2.3.4
-update dnsZoneEntry bar.foo.debian.net IN A 1.2.3.4
-update dnsZoneEntry bar.foo.debian.net. IN A 1.2.3.4
-update dnsZoneEntry bar.foo.debian.net.. IN A 1.2.3.4
+update emailForward luca.filipozzi@gmail.com
+update ircNick luca
+update l Vancouver, BC
