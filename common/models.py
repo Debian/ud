@@ -4,8 +4,51 @@ from django.core.exceptions import ValidationError
 from ldapdb.models.fields import CharField, IntegerField, ListField
 import ldapdb.models
 import ldap
-
 ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, '/etc/ssl/certs/ca-certificates.crt')
+
+import re
+from IPy import IP
+
+# not IDN ready
+def validate_dns_labels(val):
+    disallowed = re.compile('[^A-Z\d-]', re.IGNORECASE)
+    for label in val.split('.'):
+        if len(label) == 0:
+            raise ValidationError('label in name is too short')
+        if len(label) > 63:
+            raise ValidationError('label in name is too long')
+        if label.startswith('-') or label.endswith('-'):
+            raise ValidationError('label in name begins/ends with hyphen')
+        if disallowed.search(label):
+            raise ValidationError('label in name contains invalid characters')
+
+# fully qualified domain name
+def validate_fqdn(val):
+    if len(val) > 255:
+        raise ValidationError('name is too long')
+    if not val.endswith('.'):
+        raise ValidationError('name does not end in .')
+    validate_dns_labels(val[:-1])
+    
+# partially qualified domain name
+def validate_pqdn(val):
+    if len(val) > (255 - len('.debian.net.')):
+        raise ValidationError('label is too long')
+    if val.endswith('.'):
+        raise ValidationError('label ends in .')
+    if val.endswith('.debian.net'):
+        raise ValidationError('label ends in .debian.net')
+    validate_dns_labels(val)
+
+def validate_ipv4(val):
+    address = IP(val)
+    if address.version() != 4:
+        raise ValidationError('value is not an IPv4 address')
+
+def validate_ipv6(val):
+    address = IP(val)
+    if address.version() != 6:
+        raise ValidationError('value is not an IPv6 address')
 
 def validate_bATVToken(val):
     return
@@ -85,6 +128,36 @@ class User(ldapdb.models.Model):
         (field, model, direct, m2m) = self._meta.get_field_by_name(key)
         if direct and not m2m:
             setattr(self, key, field.clean(val, self))
+
+    def update_dnsZoneEntry_IN_A(self, name, address):
+        validate_pqdn(name)
+        validate_ipv4(address)
+        val = '%s IN A %s' % (name.lower(), address)
+        # TODO update
+
+    def update_dnsZoneEntry_IN_AAAA(self, name, address):
+        validate_pqdn(name)
+        validate_ipv6(address)
+        val = '%s IN AAAA %s' % (name.lower(), address)
+        # TODO update
+
+    def update_dnsZoneEntry_IN_CNAME(self, name, cname):
+        validate_pqdn(name)
+        validate_fqdn(cname)
+        val = '%s IN CNAME %s' % (name.lower(), cname.lower())
+
+    def update_dnsZoneEntry_IN_MX(self, name, preference, exchange):
+        validate_pqdn(name)
+        # TODO ensure preference is numeric 1-999
+        validate_fqdn(exchange)
+        val = '%s IN MX %s %s' % (name.lower(), preference, exchange.lower())
+        # TODO update
+
+    def update_dnsZoneEntry_IN_TXT(self, name, txtdata):
+        validate_pqdn(name)
+        # TODO validate txtdata
+        val = '%s IN TXT %s' % (name.lower(), txtdata)
+        # TODO update
 
     def update_list(self, key, val):
         (field, model, direct, m2m) = self._meta.get_field_by_name(key)

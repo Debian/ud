@@ -2,19 +2,8 @@
 
 from django.core.exceptions import ValidationError
 
-from IPy import IP
 from pyparsing import Keyword, LineEnd, LineStart, NoMatch, ParseException, Regex, Word
 from pyparsing import alphas, alphanums, hexnums, nums
-import re
-
-# TODO move validation to django model
-def is_valid_hostname(hostname):
-    if len(hostname) > 255:
-        return False
-    if hostname[-1:] == ".":
-        hostname = hostname[:-1] # strip exactly one dot from the right, if present
-    allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
-    return all(allowed.match(x) for x in hostname.split("."))
 
 class MailGateException(Exception):
     def __init__(self, message):
@@ -168,54 +157,48 @@ class MailGate:
 
     def process_commands(self, user, commands):
         self.user = user
-        self.result = []
-
-        # process the commands
+        self.rval = []
         commit = True
-        for line in commands:
+        for line in commands: # process the commands
             if line == '-- ': # stop processing if email signature marker seen
                 break
             try:
                 self.grammar.parseString(line)
             except MailGateException:
                 commit = False
-
-        # commit the changes
-        if commit:
+        if commit: # commit the changes
             try:
                 user.save()
             except Exception as err:
-                self.result.append('==> fatal error: %s' % err)
+                self.rval.append('==> fatal error: %s' % err)
         else:
-            self.result.append('==> parse error - no changes saved')
-
-        return self.result
+            self.rval.append('==> parse error - no changes saved')
+        return self.rval
 
     def success(self, s, res):
-        self.result.append('> %s' % s)
-        self.result.append('ack: %s' % res)
+        self.rval.append('> %s' % s)
+        self.rval.append('ack: %s' % res)
 
     def failure(self, s, loc, expr, err):
-        self.result.append('> %s' % s)
+        self.rval.append('> %s' % s)
         if type(err) == ValidationError:
             for message in err.messages:
-                self.result.append('nak: %s' % message)
+                self.rval.append('nak: %s' % message)
         else:
-            self.result.append('nak: %s' % err)
+            self.rval.append('nak: %s' % err)
         raise MailGateException('mailgate error')
 
     def do_delete(self, s, loc, tokens):
         try:
-            key = tokens[1]
-            self.delete(key)
-            self.success(s, 'do delete: %s' % (key))
+            self.delete(tokens[1])
+            self.success(s, 'do delete: %s' % (tokens[1]))
         except Exception as err:
             self.failure(s, loc, None, err)
 
     def do_show(self, s, loc, tokens):
-        try:
+        try: # TODO
             self.success(s, 'do show')
-            #self.result.append(self.user)
+            #self.rval.append(self.user)
         except Exception as err:
             self.failure(s, loc, None, err)
 
@@ -227,93 +210,51 @@ class MailGate:
 
     def do_update(self, s, loc, tokens):
         try:
-            key = tokens[1]
-            val = tokens[2]
-            self.user.update(key, val)
-            self.success(s, "do update: %s <- '%s'" % (key, val))
+            self.user.update(tokens[1], tokens[2])
+            self.success(s, "do update: %s <- '%s'" % (tokens[1], tokens[2]))
         except Exception as err:
             self.failure(s, loc, None, err)
 
     def do_update_dnsZoneEntry_IN_A(self, s, loc, tokens):
         try:
-            key = tokens[1]
-            name = tokens[2]
-            if not is_valid_hostname(name) or name.endswith('.debian.net'):
-                raise Exception("'%s' is not a valid label" % name)
-            address = IP(tokens[5])
-            if address.version() != 4:
-                raise Exception("'%s' is not a valid IPv4 address" % address)
-            val = ('%s IN A %s') % (name, address)
-            self.user.update_list(key, val)
-            self.success(s, "do update: %s <- '%s'" % (key, val))
+            self.user.update_dnsZoneEntry_IN_A(tokens[2], tokens[5])
+            self.success(s, "do update: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
         except Exception as err:
             self.failure(s, loc, None, err)
 
     def do_update_dnsZoneEntry_IN_AAAA(self, s, loc, tokens):
         try:
-            key = tokens[1]
-            name = tokens[2]
-            if not is_valid_hostname(name) or name.endswith('.debian.net'):
-                raise Exception("'%s' is not a valid label" % name)
-            address = IP(tokens[5])
-            if address.version() != 6:
-                raise Exception("'%s' is not a valid IPv6 address" % address)
-            val = ('%s IN AAAA %s') % (name, address)
-            self.user.update_list(key, val)
-            self.success(s, "do update: %s <- '%s'" % (key, val))
+            self.user.update_dnsZoneEntry_IN_AAAA(tokens[2], tokens[5])
+            self.success(s, "do update: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
         except Exception as err:
             self.failure(s, loc, None, err)
 
     def do_update_dnsZoneEntry_IN_CNAME(self, s, loc, tokens):
         try:
-            key = tokens[1]
-            name = tokens[2]
-            if not is_valid_hostname(name) or name.endswith('.debian.net'):
-                raise Exception("'%s' is not a valid label" % name)
-            cname = tokens[5]
-            if not is_valid_hostname(cname):
-                raise Exception("'%s' is not a valid hostname" % cname)
-            val = ('%s IN CNAME %s') % (name, cname)
-            self.user.update_list(key, val)
-            self.success(s, "do update: %s <- '%s'" % (key, val))
+            self.user.update_dnsZoneEntry_IN_CNAME(tokens[2], tokens[5])
+            self.success(s, "do update: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
         except Exception as err:
             self.failure(s, loc, None, err)
 
     def do_update_dnsZoneEntry_IN_MX(self, s, loc, tokens):
         try:
-            key = tokens[1]
-            name = tokens[2]
-            if not is_valid_hostname(name) or name.endswith('.debian.net'):
-                raise Exception("'%s' is not a valid label" % name)
-            preference = tokens[5]
-            exchange = tokens[6]
-            if not is_valid_hostname(exchange):
-                raise Exception("'%s' is not a valid hostname" % exchange)
-            val = ('%s IN MX %s %s') % (tokens[2], preference, exchange)
-            self.user.update_list(key, val)
-            self.success(s, "do update: %s <- '%s'" % (key, val))
+            self.user.update_dnsZoneEntry_IN_MX(tokens[2], tokens[5], tokens[6])
+            self.success(s, "do update: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
         except Exception as err:
             self.failure(s, loc, None, err)
 
     def do_update_dnsZoneEntry_IN_TXT(self, s, loc, tokens):
         try:
-            key = tokens[1]
-            name = tokens[2]
-            if not is_valid_hostname(name) or name.endswith('.debian.net'):
-                raise Exception("'%s' is not a valid label" % name)
-            txtdata = tokens[5]
-            val = ('%s IN TXT %s') % (name, txtdata)
-            self.user.update_list(key, val)
-            self.success(s, "do update: %s <- '%s'" % (key, val))
+            self.user.update_dnsZoneEntry_IN_CNAME(tokens[2], tokens[5])
+            self.success(s, "do update: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
         except Exception as err:
             self.failure(s, loc, None, err)
 
     def do_update_gender(self, s, loc, tokens):
-        try:
-            key = tokens[1]
-            val = {'male': 1, 'female': 2, 'unspecified': 9}[tokens[2]]
-            self.user.update(key, val)
-            self.success(s, "do update: %s -< '%s'" % (key, val))
+        try: # TODO
+            tokens[2] = {'male': 1, 'female': 2, 'unspecified': 9}[tokens[2]]
+            self.user.update(tokens[1], tokens[2])
+            self.success(s, "do update: %s -< '%s'" % (tokens[1], tokens[2]))
         except Exception as err:
             self.failure(s, loc, None, err)
 

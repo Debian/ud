@@ -3,7 +3,13 @@ reset password
 update bATVToken token
 update birthDate 19710420
 update c ca
-update dnsZoneEntry foo IN CNAME www.example.com.
+update dnsZoneEntry foo IN A 1.2.3.4
+update dnsZoneEntry foo.bar IN A 1.2.3.4
+update dnsZoneEntry foo.debian.net IN A 1.2.3.4
+update dnsZoneEntry foo IN A 1.2.3.999
+update dnsZoneEntry foo IN AAAA 2607:f8f0:610:4000:214:38ff:feee:b65a
+update dnsZoneEntry foo IN CNAME www.emyr.net.
+update dnsZoneEntry foo IN MX 10 mx1.emyr.net.
 update emailForward luca.filipozzi@gmail.com
 update ircNick luca
 update l Vancouver, BC
