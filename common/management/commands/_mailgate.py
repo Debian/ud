@@ -173,7 +173,7 @@ class MailGate:
         self.grammar = LineStart() + expressions + LineEnd()
         self.grammar.setFailAction(self.failure)
 
-    def process_commands(self, user, commands):
+    def process_commands(self, user, commands, dryrun=False):
         self.user = user
         self.rval = []
         commit = True
@@ -185,12 +185,15 @@ class MailGate:
             except MailGateException:
                 commit = False
         if commit: # commit the changes
-            try:
-                user.save()
-            except Exception as err:
-                self.rval.append('==> fatal error: %s' % err)
+            if not dryrun:
+                try:
+                    user.save()
+                except Exception as err:
+                    self.rval.append('==> fatal error: %s' % err)
+            else:
+                self.rval.append('==> dryrun: no changes saved')
         else:
-            self.rval.append('==> parse error - no changes saved')
+            self.rval.append('==> parse error: no changes saved')
         return self.rval
 
     def success(self, s, res):

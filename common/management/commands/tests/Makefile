@@ -1,6 +1,7 @@
 .PHONY: build
 build: commands.eml
-	cat $< | ../../../../manage mailgate --stdout
+	@#cat $< | ../../../../manage mailgate --settings=ud.local --stdout
+	cat $< | ../../../../manage mailgate --stdout --dryrun
 
 .PHONY: clean
 clean:

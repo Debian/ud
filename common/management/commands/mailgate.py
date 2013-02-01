@@ -21,6 +21,12 @@ class Command(BaseCommand):
             default=False,
             help='send reply to stdout'
         ),
+        optparse.make_option('--dryrun',
+            action='store_true',
+            dest='dryrun',
+            default=False,
+            help='do not commit changes'
+        ),
     )
 
     def handle(self, *args, **options):
@@ -30,7 +36,7 @@ class Command(BaseCommand):
             message = email.message_from_file(sys.stdin)
             (fingerprint, commands) = self.verify_message(message)
             user = self.verify_fingerprint(fingerprint)
-            result = mailgate.process_commands(user, commands)
+            result = mailgate.process_commands(user, commands, self.options['dryrun'])
             self.generate_reply(message, result)
         except Exception as err:
             raise CommandError(err)

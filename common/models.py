@@ -129,22 +129,24 @@ class User(ldapdb.models.Model):
         if direct and not m2m:
             setattr(self, key, field.clean(val, self))
 
-    def __delete_dnsZoneEntry(self, query):
+    def __delete_dnsZoneEntry(self, query, delete_all=False):
         users = User.objects.filter(dnsZoneEntry__startswith=query)
-        if len(users) == 0: # no user owns the resource record
-            self.dnsZoneEntry.append(new_value)
         if len(users) == 1: # one user owns the resource record
             if users[0].uid == self.uid: # if that user is me
                 records = [x for x in self.dnsZoneEntry if x.startswith(query)]
-                if len(records) == 1:
-                    old_value = records[0]
-                    self.dnsZoneEntry.remove(old_value)
+                if delete_all:
+                    for old_value in records:
+                        self.dnsZoneEntry.remove(old_value)
                 else:
-                    raise ValidationError('resource record already exists (multiple self)')
+                    if len(records) == 1:
+                        old_value = records[0]
+                        self.dnsZoneEntry.remove(old_value)
+                    else:
+                        raise ValidationError('record cannot be deleted: multiple records')
             else:
-                raise ValidationError('resource record already exists (another user)')
+                raise ValidationError('record cannot be deleted: owned by another user')
         if len(users) >= 2: # two or more users own the record ... should never happen
-            raise ValidationError('resource record already exists (multiple users)')
+            raise ValidationError('record cannot be deleted: owned by multiple users')
 
     def __update_dnsZoneEntry(self, query, new_value):
         users = User.objects.filter(dnsZoneEntry__startswith=query)
@@ -158,19 +160,17 @@ class User(ldapdb.models.Model):
                     if new_value != old_value: # change if different
                         self.dnsZoneEntry.remove(old_value)
                         self.dnsZoneEntry.append(new_value)
-                    #else:
-                    #    raise ValidationError('resource record already exists (no change)')
                 else:
-                    raise ValidationError('resource record already exists (multiple self)')
+                    raise ValidationError('record cannot be added: multiple entries')
             else:
-                raise ValidationError('resource record already exists (another user)')
+                raise ValidationError('record cannot be added: owned by another user')
         if len(users) >= 2: # two or more users own the record ... should never happen
-            raise ValidationError('resource record already exists (multiple users)')
+            raise ValidationError('record cannot be added: owned by multiple users')
 
     def delete_dnsZoneEntry(self, name):
         validate_pqdn(name)
         query = '%s' % (name.lower())
-        self.__delete_dnsZoneEntry(query)
+        self.__delete_dnsZoneEntry(query, True)
 
     def delete_dnsZoneEntry_IN_A(self, name):
         validate_pqdn(name)
