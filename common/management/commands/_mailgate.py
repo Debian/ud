@@ -57,7 +57,7 @@ class MailGate:
         update_expression = Keyword('update') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('TXT') + Regex(r'[-\d. a-z\t<>@]+')
         expressions |= update_expression.setParseAction(self.do_update_dnsZoneEntry_IN_TXT)
         delete_expression = Keyword('delete') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('TXT')
-        expressions |= delete_expression.setParseAction(self.do_delete_dnsZoneEntry_IN_MX)
+        expressions |= delete_expression.setParseAction(self.do_delete_dnsZoneEntry_IN_TXT)
 
         delete_expression = Keyword('delete') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w')
         expressions |= delete_expression.setParseAction(self.do_delete_dnsZoneEntry)

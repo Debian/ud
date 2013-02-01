@@ -148,20 +148,24 @@ class User(ldapdb.models.Model):
         if len(users) >= 2: # two or more users own the record ... should never happen
             raise ValidationError('record cannot be deleted: owned by multiple users')
 
-    def __update_dnsZoneEntry(self, query, new_value):
+    def __update_dnsZoneEntry(self, query, new_value, allow_multiple=False):
         users = User.objects.filter(dnsZoneEntry__startswith=query)
         if len(users) == 0: # no user owns the resource record
             self.dnsZoneEntry.append(new_value)
         if len(users) == 1: # one user owns the resource record
             if users[0].uid == self.uid: # if that user is me
                 records = [x for x in self.dnsZoneEntry if x.startswith(query)]
-                if len(records) == 1:
-                    old_value = records[0]
-                    if new_value != old_value: # change if different
-                        self.dnsZoneEntry.remove(old_value)
+                if allow_multiple:
+                    if new_value not in records:
                         self.dnsZoneEntry.append(new_value)
                 else:
-                    raise ValidationError('record cannot be added: multiple entries')
+                    if len(records) == 1:
+                        old_value = records[0]
+                        if new_value != old_value: # change if different
+                            self.dnsZoneEntry.remove(old_value)
+                            self.dnsZoneEntry.append(new_value)
+                    else:
+                        raise ValidationError('record cannot be added: multiple entries')
             else:
                 raise ValidationError('record cannot be added: owned by another user')
         if len(users) >= 2: # two or more users own the record ... should never happen
@@ -192,7 +196,7 @@ class User(ldapdb.models.Model):
     def update_dnsZoneEntry_IN_AAAA(self, name, address):
         validate_pqdn(name)
         validate_ipv6(address)
-        value = '%s IN AAAA' % (name.lower())
+        query = '%s IN AAAA' % (name.lower())
         value = '%s IN AAAA %s' % (name.lower(), address)
         self.__update_dnsZoneEntry(query, value)
 
@@ -211,7 +215,7 @@ class User(ldapdb.models.Model):
     def delete_dnsZoneEntry_IN_MX(self, name):
         validate_pqdn(name)
         query = '%s IN MX' % (name.lower())
-        self.__delete_dnsZoneEntry(query)
+        self.__delete_dnsZoneEntry(query, True)
 
     def update_dnsZoneEntry_IN_MX(self, name, preference, exchange):
         validate_pqdn(name)
@@ -220,7 +224,7 @@ class User(ldapdb.models.Model):
         validate_fqdn(exchange)
         query = '%s IN MX' % (name.lower())
         value = '%s IN MX %d %s' % (name.lower(), int(preference), exchange.lower())
-        self.__update_dnsZoneEntry(query, value)
+        self.__update_dnsZoneEntry(query, value, True)
 
     def delete_dnsZoneEntry_IN_TXT(self, name):
         validate_pqdn(name)
