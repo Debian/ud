@@ -36,14 +36,32 @@ class MailGate:
 
         update_expression = Keyword('update') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('A') + Word(nums+'.')
         expressions |= update_expression.setParseAction(self.do_update_dnsZoneEntry_IN_A)
+        delete_expression = Keyword('delete') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('A')
+        expressions |= delete_expression.setParseAction(self.do_delete_dnsZoneEntry_IN_A)
+
         update_expression = Keyword('update') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('AAAA') + Word(hexnums+':')
         expressions |= update_expression.setParseAction(self.do_update_dnsZoneEntry_IN_AAAA)
+        delete_expression = Keyword('delete') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('AAAA')
+        expressions |= delete_expression.setParseAction(self.do_delete_dnsZoneEntry_IN_AAAA)
+
         update_expression = Keyword('update') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('CNAME') + Regex(r'[-\w.]+\.')
         expressions |= update_expression.setParseAction(self.do_update_dnsZoneEntry_IN_CNAME)
+        delete_expression = Keyword('delete') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('CNAME')
+        expressions |= delete_expression.setParseAction(self.do_delete_dnsZoneEntry_IN_CNAME)
+
         update_expression = Keyword('update') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('MX') + Regex(r'\d{1,3}') + Regex(r'[-\w.]+\.')
         expressions |= update_expression.setParseAction(self.do_update_dnsZoneEntry_IN_MX)
+        delete_expression = Keyword('delete') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('MX')
+        expressions |= delete_expression.setParseAction(self.do_delete_dnsZoneEntry_IN_MX)
+
         update_expression = Keyword('update') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('TXT') + Regex(r'[-\d. a-z\t<>@]+')
         expressions |= update_expression.setParseAction(self.do_update_dnsZoneEntry_IN_TXT)
+        delete_expression = Keyword('delete') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w') + Keyword('IN') + Keyword('TXT')
+        expressions |= delete_expression.setParseAction(self.do_delete_dnsZoneEntry_IN_MX)
+
+        delete_expression = Keyword('delete') + Keyword('dnsZoneEntry') + Regex(r'[-\w.]+\w')
+        expressions |= delete_expression.setParseAction(self.do_delete_dnsZoneEntry)
+
         delete_expression = Keyword('delete') + Keyword('dnsZoneEntry')
         expressions |= delete_expression.setParseAction(self.do_delete)
 
@@ -215,10 +233,31 @@ class MailGate:
         except Exception as err:
             self.failure(s, loc, None, err)
 
+    def do_delete_dnsZoneEntry(self, s, loc, tokens):
+        try:
+            self.user.delete_dnsZoneEntry(tokens[2])
+            self.success(s, "do delete: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
+        except Exception as err:
+            self.failure(s, loc, None, err)
+
+    def do_delete_dnsZoneEntry_IN_A(self, s, loc, tokens):
+        try:
+            self.user.delete_dnsZoneEntry_IN_A(tokens[2])
+            self.success(s, "do delete: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
+        except Exception as err:
+            self.failure(s, loc, None, err)
+
     def do_update_dnsZoneEntry_IN_A(self, s, loc, tokens):
         try:
             self.user.update_dnsZoneEntry_IN_A(tokens[2], tokens[5])
             self.success(s, "do update: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
+        except Exception as err:
+            self.failure(s, loc, None, err)
+
+    def do_delete_dnsZoneEntry_IN_AAAA(self, s, loc, tokens):
+        try:
+            self.user.delete_dnsZoneEntry_IN_AAAA(tokens[2])
+            self.success(s, "do delete: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
         except Exception as err:
             self.failure(s, loc, None, err)
 
@@ -229,6 +268,13 @@ class MailGate:
         except Exception as err:
             self.failure(s, loc, None, err)
 
+    def do_delete_dnsZoneEntry_IN_CNAME(self, s, loc, tokens):
+        try:
+            self.user.delete_dnsZoneEntry_IN_CNAME(tokens[2])
+            self.success(s, "do delete: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
+        except Exception as err:
+            self.failure(s, loc, None, err)
+
     def do_update_dnsZoneEntry_IN_CNAME(self, s, loc, tokens):
         try:
             self.user.update_dnsZoneEntry_IN_CNAME(tokens[2], tokens[5])
@@ -236,10 +282,24 @@ class MailGate:
         except Exception as err:
             self.failure(s, loc, None, err)
 
+    def do_delete_dnsZoneEntry_IN_MX(self, s, loc, tokens):
+        try:
+            self.user.delete_dnsZoneEntry_IN_MX(tokens[2])
+            self.success(s, "do delete: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
+        except Exception as err:
+            self.failure(s, loc, None, err)
+
     def do_update_dnsZoneEntry_IN_MX(self, s, loc, tokens):
         try:
             self.user.update_dnsZoneEntry_IN_MX(tokens[2], tokens[5], tokens[6])
             self.success(s, "do update: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
+        except Exception as err:
+            self.failure(s, loc, None, err)
+
+    def do_delete_dnsZoneEntry_IN_TXT(self, s, loc, tokens):
+        try:
+            self.user.delete_dnsZoneEntry_IN_CNAME(tokens[2])
+            self.success(s, "do delete: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
         except Exception as err:
             self.failure(s, loc, None, err)
 

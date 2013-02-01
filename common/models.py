@@ -129,39 +129,109 @@ class User(ldapdb.models.Model):
         if direct and not m2m:
             setattr(self, key, field.clean(val, self))
 
+    def __delete_dnsZoneEntry(self, query):
+        users = User.objects.filter(dnsZoneEntry__startswith=query)
+        if len(users) == 0: # no user owns the resource record
+            self.dnsZoneEntry.append(new_value)
+        if len(users) == 1: # one user owns the resource record
+            if users[0].uid == self.uid: # if that user is me
+                records = [x for x in self.dnsZoneEntry if x.startswith(query)]
+                if len(records) == 1:
+                    old_value = records[0]
+                    self.dnsZoneEntry.remove(old_value)
+                else:
+                    raise ValidationError('resource record already exists (multiple self)')
+            else:
+                raise ValidationError('resource record already exists (another user)')
+        if len(users) >= 2: # two or more users own the record ... should never happen
+            raise ValidationError('resource record already exists (multiple users)')
+
+    def __update_dnsZoneEntry(self, query, new_value):
+        users = User.objects.filter(dnsZoneEntry__startswith=query)
+        if len(users) == 0: # no user owns the resource record
+            self.dnsZoneEntry.append(new_value)
+        if len(users) == 1: # one user owns the resource record
+            if users[0].uid == self.uid: # if that user is me
+                records = [x for x in self.dnsZoneEntry if x.startswith(query)]
+                if len(records) == 1:
+                    old_value = records[0]
+                    if new_value != old_value: # change if different
+                        self.dnsZoneEntry.remove(old_value)
+                        self.dnsZoneEntry.append(new_value)
+                    #else:
+                    #    raise ValidationError('resource record already exists (no change)')
+                else:
+                    raise ValidationError('resource record already exists (multiple self)')
+            else:
+                raise ValidationError('resource record already exists (another user)')
+        if len(users) >= 2: # two or more users own the record ... should never happen
+            raise ValidationError('resource record already exists (multiple users)')
+
+    def delete_dnsZoneEntry(self, name):
+        validate_pqdn(name)
+        query = '%s' % (name.lower())
+        self.__delete_dnsZoneEntry(query)
+
+    def delete_dnsZoneEntry_IN_A(self, name):
+        validate_pqdn(name)
+        query = '%s IN A' % (name.lower())
+        self.__delete_dnsZoneEntry(query)
+
     def update_dnsZoneEntry_IN_A(self, name, address):
         validate_pqdn(name)
         validate_ipv4(address)
-        val = '%s IN A %s' % (name.lower(), address)
-        # TODO update
+        query = '%s IN A' % (name.lower())
+        value = '%s IN A %s' % (name.lower(), address)
+        self.__update_dnsZoneEntry(query, value)
+
+    def delete_dnsZoneEntry_IN_AAAA(self, name):
+        validate_pqdn(name)
+        query = '%s IN AAAA' % (name.lower())
+        self.__delete_dnsZoneEntry(query)
 
     def update_dnsZoneEntry_IN_AAAA(self, name, address):
         validate_pqdn(name)
         validate_ipv6(address)
-        val = '%s IN AAAA %s' % (name.lower(), address)
-        # TODO update
+        value = '%s IN AAAA' % (name.lower())
+        value = '%s IN AAAA %s' % (name.lower(), address)
+        self.__update_dnsZoneEntry(query, value)
+
+    def delete_dnsZoneEntry_IN_CNAME(self, name):
+        validate_pqdn(name)
+        query = '%s IN CNAME' % (name.lower())
+        self.__delete_dnsZoneEntry(query)
 
     def update_dnsZoneEntry_IN_CNAME(self, name, cname):
         validate_pqdn(name)
         validate_fqdn(cname)
-        val = '%s IN CNAME %s' % (name.lower(), cname.lower())
+        query = '%s IN CNAME' % (name.lower())
+        value = '%s IN CNAME %s' % (name.lower(), cname.lower())
+        self.__update_dnsZoneEntry(query, value)
+
+    def delete_dnsZoneEntry_IN_MX(self, name):
+        validate_pqdn(name)
+        query = '%s IN MX' % (name.lower())
+        self.__delete_dnsZoneEntry(query)
 
     def update_dnsZoneEntry_IN_MX(self, name, preference, exchange):
         validate_pqdn(name)
-        # TODO ensure preference is numeric 1-999
+        if int(preference) < 1 or int(preference) > 999:
+            raise ValidationError('preference %s out of range' % preference)
         validate_fqdn(exchange)
-        val = '%s IN MX %s %s' % (name.lower(), preference, exchange.lower())
-        # TODO update
+        query = '%s IN MX' % (name.lower())
+        value = '%s IN MX %d %s' % (name.lower(), int(preference), exchange.lower())
+        self.__update_dnsZoneEntry(query, value)
+
+    def delete_dnsZoneEntry_IN_TXT(self, name):
+        validate_pqdn(name)
+        query = '%s IN TXT' % (name.lower())
+        self.__delete_dnsZoneEntry(query)
 
     def update_dnsZoneEntry_IN_TXT(self, name, txtdata):
         validate_pqdn(name)
         # TODO validate txtdata
-        val = '%s IN TXT %s' % (name.lower(), txtdata)
-        # TODO update
-
-    def update_list(self, key, val):
-        (field, model, direct, m2m) = self._meta.get_field_by_name(key)
-        #if direct and not m2m:
-        #    setattr(self, key, field.clean(val, self))
+        query = '%s IN TXT' % (name.lower())
+        value = '%s IN TXT %s' % (name.lower(), txtdata)
+        self.__update_dnsZoneEntry(query, value)
 
 # vim: ts=4 sw=4 et ai si sta:
