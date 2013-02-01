@@ -11,8 +11,8 @@ args = parser.parse_args()
 
 msg = MIMEText(sys.stdin.read())
 msg['Subject'] = args.subject
-msg['From'] = 'lfilipoz@emyr.net'
-msg['Reply-To'] = 'lfilipoz@debian.org'
+msg['From'] = 'Luca Filipozzi <lfilipoz@debian.org>'
+msg['Reply-To'] = 'Luca Filipozzi <lfilipoz@emyr.net>'
 msg['To'] = args.recipient
 
 print msg.as_string()

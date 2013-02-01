@@ -1,6 +1,6 @@
 .PHONY: build
 build: commands.eml
-	cat $< | ../../../../manage mailgate
+	cat $< | ../../../../manage mailgate --stdout
 
 .PHONY: clean
 clean:

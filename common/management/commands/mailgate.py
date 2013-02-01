@@ -1,18 +1,30 @@
 from django.core.management.base import BaseCommand, CommandError
 from common.models import User
 
+import optparse
 import email
 import email.mime.text
+import email.utils
 import pyme.constants.sigsum
 import pyme.core
+import smtplib
 import sys
 
 from _mailgate import MailGate
 
 class Command(BaseCommand):
     help = 'mailgate - mail gateway command processor'
+    option_list = BaseCommand.option_list + (
+        optparse.make_option('--stdout',
+            action='store_true',
+            dest='stdout',
+            default=False,
+            help='send reply to stdout'
+        ),
+    )
 
     def handle(self, *args, **options):
+        self.options = options
         try:
             mailgate = MailGate()
             message = email.message_from_file(sys.stdin)
@@ -24,8 +36,14 @@ class Command(BaseCommand):
             raise CommandError(err)
 
     def verify_message(self, message):
-        if not (message.get('Reply-To') or message.get('From')):
-            raise Exception('malformed message: missing headers')
+        if message.get('Reply-To'):
+            (x,y) = email.utils.parseaddr(message.get('Reply-To'))
+            if not y:
+                raise Exception('malformed message: bad Reply-To header')
+        elif message.get('From'):
+            (x,y) = email.utils.parseaddr(message.get('From'))
+            if not y:
+                raise Exception('malformed message: bad From header')
         ctx = pyme.core.Context()
         if message.get_content_type() == 'text/plain':
             try: # normal signature (clearsign or sign & armor)
@@ -64,10 +82,22 @@ class Command(BaseCommand):
         return result[0]
 
     def generate_reply(self, message, result):
+        from_mailaddr = 'changes@db.debian.org'
+        if message.get('Reply-To'):
+            to = message.get('Reply-To')
+            (to_realname,to_mailaddr) = email.utils.parseaddr(to)
+        elif message.get('From'):
+            to = message.get('From')
+            (to_realname,to_mailaddr) = email.utils.parseaddr(to)
         msg = email.mime.text.MIMEText('\n'.join(result))
-        msg['From'] = 'changes@db.debian.org'
-        msg['To'] = reply_to = message.get('Reply-To') or message.get('From')
+        msg['From'] = from_mailaddr
+        msg['To'] = to
         msg['Subject'] = 'ud-mailgate processing results'
-        print msg.as_string()
+        if self.options['stdout']:
+            print msg.as_string()
+        else:
+            s = smtplib.SMTP('localhost')
+            s.sendmail(from_mailaddr, to_mailaddr, msg.as_string())
+            s.quit()
 
 # vim: set ts=4 sw=4 et ai si sta:
