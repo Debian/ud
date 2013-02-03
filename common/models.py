@@ -186,7 +186,12 @@ class Host(ldapdb.models.Model):
     allowedGroups               = ListField(    db_column='allowedGroups',            editable = False)
     host                        = CharField(    db_column='host',                     editable = False, primary_key=True)
     hostname                    = CharField(    db_column='hostname',                 editable = False)
-    hostname                    = CharField(    db_column='hostname',                 editable = False)
+
+    def __str__(self):
+        return self.host
+
+    def __unicode__(self):
+        return self.host
 
 
 class User(ldapdb.models.Model):

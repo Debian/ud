@@ -39,11 +39,17 @@ class Command(BaseCommand):
         # marshall data
         users = User.objects.all()
         hosts = Host.objects.all()
-        # generate output
         for host in hosts:
+            host.users = []
             host_allowedGroups_set = set(host.allowedGroups)
             for user in users:
+                user.hosts = []
                 if host_allowedGroups_set & set(user.supplementaryGid):
-                    self.stdout.write(host.hostname + ': ' + user.uid + '\n')
+                    host.users.append(user)
+                    user.hosts.append(host)
+        # generate output
+        for host in hosts:
+            self.stdout.write('%s: %s\n' % (host.hostname, ', '.join([x.uid for x in host.users])))
+        # NOTE that host.users and user.hosts is not permanent and is scoped to this function only
 
 # vim: set ts=4 sw=4 et ai si sta:
