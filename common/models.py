@@ -236,6 +236,7 @@ class User(ldapdb.models.Model):
 
     def update(self, key, val):
         (field, model, direct, m2m) = self._meta.get_field_by_name(key)
+        print type(field)
         if direct and not m2m:
             setattr(self, key, field.clean(val, self))
 
@@ -348,15 +349,15 @@ class User(ldapdb.models.Model):
         value = '%s IN TXT %s' % (name.lower(), txtdata)
         self.__update_dnsZoneEntry(query, value)
 
-    def __delete_ListField(self, fieldname, query):
-        field = getattr(self, fieldname)
+    def __delete_ListField(self, key, query):
+        field = getattr(self, key)
         records = [x for x in field if query in x]
         for record in records:
             field.remove(record)
 
     # a given key can only be used once
-    def __update_ListField(self, fieldname, query, new_value):
-        field = getattr(self, fieldname)
+    def __update_ListField(self, key, query, new_value):
+        field = getattr(self, key)
         records = [x for x in field if query in x]
         if len(records) == 0:
             field.append(new_value)
