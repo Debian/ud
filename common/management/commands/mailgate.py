@@ -31,15 +31,13 @@ from _mailgate import MailGate
 class Command(BaseCommand):
     help = 'mailgate - mail gateway command processor'
     option_list = BaseCommand.option_list + (
-        optparse.make_option('--stdout',
+        optparse.make_option('--console',
             action='store_true',
-            dest='stdout',
             default=False,
             help='send reply to stdout'
         ),
         optparse.make_option('--dryrun',
             action='store_true',
-            dest='dryrun',
             default=False,
             help='do not commit changes'
         ),
@@ -115,7 +113,7 @@ class Command(BaseCommand):
         msg['From'] = from_mailaddr
         msg['To'] = to
         msg['Subject'] = 'ud-mailgate processing results'
-        if self.options['stdout']:
+        if self.options['console']:
             print msg.as_string()
         else:
             s = smtplib.SMTP('localhost')

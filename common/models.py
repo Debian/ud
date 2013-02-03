@@ -183,7 +183,9 @@ def validate_sshRSAAuthKey_allowed_hosts(allowed_hosts):
 class Host(ldapdb.models.Model):
     base_dn = 'ou=hosts,dc=debian,dc=org'
     object_classes = ['debianServer']
+    allowedGroups               = ListField(    db_column='allowedGroups',            editable = False)
     host                        = CharField(    db_column='host',                     editable = False, primary_key=True)
+    hostname                    = CharField(    db_column='hostname',                 editable = False)
     hostname                    = CharField(    db_column='hostname',                 editable = False)
 
 
@@ -221,6 +223,7 @@ class User(ldapdb.models.Model):
     # TODO postalCode
     sn                          = CharField(    db_column='sn',                       editable = False)
     sshRSAAuthKey               = ListField(    db_column='sshRSAAuthKey',            validators=[validate_sshRSAAuthKey])
+    supplementaryGid            = ListField(    db_column='supplementaryGid',         editable = False)
     # TODO telephoneNumber
     # TODO VoIP
     uid                         = CharField(    db_column='uid',                      editable = False, primary_key=True)
