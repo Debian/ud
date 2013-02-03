@@ -1,9 +1,24 @@
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.exceptions import ValidationError
 
-from pyparsing import Keyword, LineEnd, LineStart, NoMatch, ParseException, Regex, Word
+from pyparsing import CaselessKeyword, Group, Keyword, LineEnd, LineStart, Literal, NoMatch, Optional, ParseException, QuotedString, Regex, Suppress, Word
 from pyparsing import alphas, alphanums, hexnums, nums
+from pyparsing import delimitedList
 
 class MailGateException(Exception):
     def __init__(self, message):
@@ -158,7 +173,29 @@ class MailGate:
         delete_expression = Keyword('delete') + Keyword('postalCode')
         expressions |= delete_expression.setParseAction(self.do_delete)
 
-        # TODO 'update sshRSAAuthKey'
+        hostname = Word(alphanums+'-.')
+        flag = (
+            # reject flags: cert-authority
+            CaselessKeyword('no-agent-forwarding') |
+            CaselessKeyword('no-port-forwarding') |
+            CaselessKeyword('no-pty') |
+            CaselessKeyword('no-user-rc') |
+            CaselessKeyword('no-X11-forwarding')
+        )
+        key = (
+            # reject keys: principals, tunnel
+            CaselessKeyword('command') |
+            CaselessKeyword('environment') |
+            CaselessKeyword('from') |
+            CaselessKeyword('permitopen')
+        )
+        keyval = key + Literal('=') + QuotedString('"', unquoteResults=False)
+        options = delimitedList(flag | keyval, combine=True)
+        allowed_hosts = Suppress(Keyword('allowed_hosts')) + Suppress(Literal('=')) + Group(delimitedList(hostname))
+        update_expression = Keyword('update') + Keyword('sshRSAAuthKey') + Optional(allowed_hosts, default=[]) + Optional(options, default=[]) + Keyword('ssh-rsa') + Regex('[a-zA-Z0-9=/+]+') + Optional(Regex('.*'), default='')
+        expressions |= update_expression.setParseAction(self.do_update_sshRSAAuthKey)
+        delete_expression = Keyword('delete') + Keyword('sshRSAAuthKey') + Keyword('ssh-rsa') + Regex('[a-zA-Z0-9=/+]+')
+        expressions |= delete_expression.setParseAction(self.do_delete_sshRSAAuthKey)
 
         update_expression = Keyword('update') + Keyword('telephoneNumber') + Regex(r'.*')
         expressions |= update_expression.setParseAction(self.do_update)
@@ -317,7 +354,29 @@ class MailGate:
         try: # TODO
             tokens[2] = {'male': 1, 'female': 2, 'unspecified': 9}[tokens[2]]
             self.user.update(tokens[1], tokens[2])
-            self.success(s, "do update: %s -< '%s'" % (tokens[1], tokens[2]))
+            self.success(s, "do update: %s <- '%s'" % (tokens[1], tokens[2]))
+        except Exception as err:
+            self.failure(s, loc, None, err)
+
+    def do_delete_sshRSAAuthKey(self, s, loc, tokens):
+        try:
+            self.user.delete_sshRSAAuthKey(tokens[3])
+            self.success(s, "do delete: %s <- '%s'" % (tokens[1], ' '.join(tokens[2:])))
+        except Exception as err:
+            self.failure(s, loc, None, err)
+
+    def do_update_sshRSAAuthKey(self, s, loc, tokens):
+        try:
+            self.user.update_sshRSAAuthKey(tokens[5], tokens[2], tokens[3], tokens[6])
+            value = ''
+            if tokens[2]: # allowed_hosts
+                value = 'allowed_hosts=%s ' % (','.join(tokens[2]))
+            if tokens[3]: # options
+                value += '%s ' % (tokens[3])
+            value += 'ssh-rsa %s' % (tokens[5])
+            if tokens[6]: # comment
+                value += ' %s' % (tokens[6])
+            self.success(s, "do update: %s <- '%s'" % (tokens[1], value))
         except Exception as err:
             self.failure(s, loc, None, err)
 

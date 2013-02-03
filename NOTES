@@ -1,0 +1,23 @@
+depends:
+  ca-certificates
+  python-django
+  python-ipy
+  python-pyme
+  python-pyparsing
+  python-m2crypto
+  django-ldapdb (customized)
+  openssh-blacklist
+  openssh-blacklist-extra
+
+ud-mailgate:
+  todo:
+    DoDel(Line,Attrs)
+    DoPosition(Line,Attrs)
+    DoRBL(Line,Attrs)
+    DoConfirmSudopassword(Line)
+    add all attributes complete with validators
+  done:
+    DoArbChange(Line,Attrs)
+    DoDNS(Line,Attrs,DnRecord)
+    DoSSH(Line,Attrs,badkeys,GetAttr(DnRecord,"uid"))
+
