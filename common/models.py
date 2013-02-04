@@ -26,8 +26,10 @@ from pyparsing import CaselessKeyword, LineEnd, LineStart, Literal, ParseExcepti
 from pyparsing import delimitedList
 
 import base64
+import datetime
 import hashlib
 import struct
+import time
 import re
 from IPy import IP
 from M2Crypto import RSA, m2
@@ -184,19 +186,35 @@ class Host(ldapdb.models.Model):
     base_dn = 'ou=hosts,dc=debian,dc=org'
     object_classes = ['debianServer']
     allowedGroups               = ListField(    db_column='allowedGroups',            editable = False)
-    host                        = CharField(    db_column='host',                     editable = False, primary_key=True)
+    hid                         = CharField(    db_column='host',                     editable = False, primary_key=True)
     hostname                    = CharField(    db_column='hostname',                 editable = False)
 
     def __str__(self):
-        return self.host
+        return self.hid
 
     def __unicode__(self):
-        return self.host
+        return self.hid
+
+
+class Group(ldapdb.models.Model):
+    base_dn = 'ou=users,dc=debian,dc=org'
+    object_classes = ['debianGroup']
+    gid                         = CharField(    db_column='gid',                      editable = False, primary_key=True)
+    gidNumber                   = CharField(    db_column='gidNumber',                editable = False)
+    subGroup                    = ListField(    db_column='subGroup',                 editable = False)
+
+    def __str__(self):
+        return self.gid
+
+    def __unicode__(self):
+        return self.gid
 
 
 class User(ldapdb.models.Model):
     base_dn = 'ou=users,dc=debian,dc=org'
     object_classes = ['debianAccount']
+    accountStatus               = CharField(    db_column='accountStatus',            editable = False)
+    allowedHost                 = ListField(    db_column='allowedHost',              editable = False)
     bATVToken                   = CharField(    db_column='bATVToken',                validators=[validate_bATVToken])
     birthDate                   = CharField(    db_column='birthDate',                validators=[validate_birthDate])
     c                           = CharField(    db_column='c',                        validators=[validate_c])
@@ -204,6 +222,7 @@ class User(ldapdb.models.Model):
     dnsZoneEntry                = ListField(    db_column='dnsZoneEntry',             validators=[validate_dnsZoneEntry])
     emailForward                = CharField(    db_column='emailForward',             validators=[validate_emailForward])
     facsimileTelephoneNumber    = CharField(    db_column='facsimileTelephoneNumber', validators=[validate_facsimileTelephoneNumber])
+    gidNumber                   = CharField(    db_column='gidNumber',                editable = False)
     # TODO gender
     # TODO icqUin
     ircNick                     = CharField(    db_column='ircNick',                  validators=[validate_ircNick])
@@ -232,6 +251,8 @@ class User(ldapdb.models.Model):
     # TODO telephoneNumber
     # TODO VoIP
     uid                         = CharField(    db_column='uid',                      editable = False, primary_key=True)
+    uidNumber                   = CharField(    db_column='uidNumber',                editable = False)
+    userPassword                = CharField(    db_column='userPassword',             editable = False)
 
     def __str__(self):
         return self.uid
@@ -394,5 +415,58 @@ class User(ldapdb.models.Model):
             # TODO validate comment
             value += ' %s' % (comment)
         self.__update_ListField('sshRSAAuthKey', query, value)
+
+    def is_retired(self):
+        if self.accountStatus:
+            parts = self.accountStatus.split()
+            status = parts[0]
+            if status == 'inactive':
+                return True
+            elif status == 'memorial':
+                return True
+            elif status == 'retiring':
+                # We'll give them a few extra days over what we said
+                age = 6 * 31 * 24 * 60 * 60
+                try:
+                    return (time.time() - time.mktime(time.strptime(parts[1], '%Y-%m-%d'))) > age
+                except IndexError:
+                    return False
+                except ValueError:
+                    return False
+        return False
+
+    def is_not_retired(self):
+        return not self.is_retired()
+
+    def has_active_password(self):
+        if not self.userPassword:
+            return False
+        if self.userPassword.upper() == '{CRYPT}*LK*':
+            return False
+        if self.userPassword.upper().startswith("{CRYPT}!"):
+            return False
+        return True
+
+    def has_locked_password(self):
+        return self.has_active_password()
+
+    def is_allowed_by_hostacl(self, desired_hostname):
+        if not self.allowedHost:
+            return False
+        if desired_hostname in self.allowedHost:
+            return True
+        for entry in self.allowedHost:
+            parts = entry.split(None, 1)
+            if len(parts) == 1:
+                continue
+            (allowed_hostname, expire) = parts
+            if allowed_hostname != desired_hostname:
+                continue
+            try:
+                parsed = datetime.datetime.strptime(expire, '%Y%m%d')
+            except ValueError:
+                return False
+            return parsed >= datetime.datetime.now()
+        return False
 
 # vim: ts=4 sw=4 et ai si sta:
