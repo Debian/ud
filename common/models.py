@@ -128,7 +128,7 @@ def validate_gecos(val):
 
 def validate_gidNumber(val):
     try:
-        if not Group.objects.filter(gidNumber__exact=val):
+        if val not in [65534] and not Group.objects.filter(gidNumber__exact=val):
             raise
     except:
         raise ValidationError('unknown group')
@@ -255,7 +255,7 @@ class Group(ldapdb.models.Model):
     base_dn = 'ou=users,dc=debian,dc=org'
     object_classes = ['debianGroup']
     gid                         = CharField(    db_column='gid',                      editable = False, primary_key=True)
-    gidNumber                   = CharField(    db_column='gidNumber',                editable = False)
+    gidNumber                   = IntegerField( db_column='gidNumber',                editable = False)
     subGroup                    = ListField(    db_column='subGroup',                 editable = False)
 
     def __str__(self):

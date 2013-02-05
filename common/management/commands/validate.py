@@ -37,6 +37,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.options = options
+        self.error = False
         if args:
             for uid in args:
                 user = User.objects.get(uid__exact=uid)
@@ -45,6 +46,8 @@ class Command(BaseCommand):
             users = User.objects.all()
             for user in users:
                 self.validate_user(user)
+        if self.error:
+            raise CommandError('validation errors detected')
 
     def validate_user(self, user):
         try:
@@ -52,6 +55,7 @@ class Command(BaseCommand):
             if self.options['verbose']:
                 print 'ack:%s' % (user.uid)
         except ValidationError as err:
+            self.error = True
             if self.options['quiet']:
                 print 'nak:%s' % (user.uid)
             else:
