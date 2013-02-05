@@ -22,8 +22,9 @@ import ldapdb.models
 import ldap
 ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, '/etc/ssl/certs/ca-certificates.crt')
 
-from pyparsing import CaselessKeyword, LineEnd, LineStart, Literal, ParseException, QuotedString
-from pyparsing import delimitedList
+import pyparsing
+from pyparsing import CaselessKeyword, Keyword, LineEnd, LineStart, Literal, Optional, ParseException, QuotedString, Regex, Suppress, Word
+from pyparsing import alphanums, delimitedList
 
 import base64
 import datetime
@@ -33,6 +34,14 @@ import time
 import re
 from IPy import IP
 from M2Crypto import RSA, m2
+
+import logging
+class NullHandler(logging.Handler):
+    def emit(self, record):
+        pass
+h = NullHandler()
+logging.getLogger('pycountry.db').addHandler(h)
+import pycountry
 
 # not IDN ready
 def validate_dns_labels(val):
@@ -82,10 +91,11 @@ def validate_birthDate(val):
     return # TODO
 
 def validate_c(val):
-    if len(val) < 2:
-        raise ValidationError('value is too short')
-    if len(val) > 2:
-        raise ValidationError('value is too long')
+    try:
+        if val.upper() not in ['AC', 'EU', 'FX', 'UK', 'YU']:
+            pycountry.countries.get(alpha2=val.upper())
+    except:
+        raise ValidationError('value is not a valid ISO3166-2 country code')
 
 def validate_dnsZoneEntry(val):
     return # TODO ... but ListField
@@ -94,7 +104,7 @@ def validate_emailForward(val):
     try:
         validate_email(val)
     except:
-        raise ValidationError('value is not a valid email address')
+        raise ValidationError('value is not a valid for emailForward')
 
 def validate_facsimileTelephoneNumber(val):
     return # TODO
@@ -106,7 +116,12 @@ def validate_l(val):
     return # TODO
 
 def validate_loginShell(val):
-    return # TODO
+    try:
+        loginShells = [ '/bin/sh', '/bin/false', '/bin/bash', '/usr/bin/bash', '/bin/csh', '/usr/bin/csh', '/bin/ksh', '/usr/bin/ksh', '/bin/tcsh', '/usr/bin/tcsh', '/bin/zsh', '/usr/bin/zsh']
+        if val not in loginShells:
+            raise
+    except:
+        raise ValidationError('value is not a valid login shell')
 
 def validate_sshRSAAuthKey(val):
     return # TODO ... but ListField
@@ -216,24 +231,24 @@ class Group(ldapdb.models.Model):
 class User(ldapdb.models.Model):
     base_dn = 'ou=users,dc=debian,dc=org'
     object_classes = ['debianAccount']
-    accountStatus               = CharField(    db_column='accountStatus',            editable = False)
-    allowedHost                 = ListField(    db_column='allowedHost',              editable = False)
+    accountStatus               = CharField(    db_column='accountStatus',            editable = False) # TODO validator
+    allowedHost                 = ListField(    db_column='allowedHost',              editable = False) # TODO validator
     bATVToken                   = CharField(    db_column='bATVToken',                validators=[validate_bATVToken], blank=True)
     birthDate                   = CharField(    db_column='birthDate',                validators=[validate_birthDate], blank=True)
-    c                           = CharField(    db_column='c',                        validators=[validate_c])
-    cn                          = CharField(    db_column='cn',                       editable = False)
+    c                           = CharField(    db_column='c',                        validators=[validate_c], blank=True)
+    cn                          = CharField(    db_column='cn',                       editable = False) # TODO validator
     dnsZoneEntry                = ListField(    db_column='dnsZoneEntry',             validators=[validate_dnsZoneEntry])
-    emailForward                = CharField(    db_column='emailForward',             validators=[validate_emailForward])
+    emailForward                = CharField(    db_column='emailForward',             validators=[validate_emailForward], blank=True)
     facsimileTelephoneNumber    = CharField(    db_column='facsimileTelephoneNumber', validators=[validate_facsimileTelephoneNumber], blank=True)
-    gecos                       = CharField(    db_column='gecos',                    editable = False)
-    gidNumber                   = CharField(    db_column='gidNumber',                editable = False)
+    gecos                       = CharField(    db_column='gecos',                    editable = False) # TODO validator
+    gidNumber                   = CharField(    db_column='gidNumber',                editable = False) # TODO validator
     # TODO gender
     # TODO icqUin
-    ircNick                     = CharField(    db_column='ircNick',                  validators=[validate_ircNick])
+    ircNick                     = CharField(    db_column='ircNick',                  validators=[validate_ircNick], blank=True)
     # TODO jabberJID
     # TODO jpegPhoto
-    keyFingerPrint              = CharField(    db_column='keyFingerPrint',           editable = False)
-    l                           = CharField(    db_column='l',                        validators=[validate_l])
+    keyFingerPrint              = CharField(    db_column='keyFingerPrint',           editable = False) # TODO validator
+    l                           = CharField(    db_column='l',                        validators=[validate_l], blank=True)
     # TODO labeledURI
     # TODO latitude
     loginShell                  = CharField(    db_column='loginShell',               validators=[validate_loginShell])
@@ -256,7 +271,7 @@ class User(ldapdb.models.Model):
     shadowMin                   = CharField(    db_column='shadowMin',                editable = False)
     shadowWarning               = CharField(    db_column='shadowWarning',            editable = False)
     sn                          = CharField(    db_column='sn',                       editable = False)
-    sshRSAAuthKey               = ListField(    db_column='sshRSAAuthKey',            validators=[validate_sshRSAAuthKey])
+    sshRSAAuthKey               = ListField(    db_column='sshRSAAuthKey',            validators=[validate_sshRSAAuthKey], blank=True)
     supplementaryGid            = ListField(    db_column='supplementaryGid',         editable = False)
     # TODO telephoneNumber
     # TODO VoIP
@@ -495,16 +510,18 @@ class User(ldapdb.models.Model):
     expire = property(_get_expire)
     
     def validate(self):
+        invalid = set()
         for fieldname in self._meta.get_all_field_names():
             (field, model, direct, m2m) = self._meta.get_field_by_name(fieldname)
-            value = getattr(self, fieldname)
-            try:
-                if type(value) == list:
-                    for v in value:
-                        field.clean(v, self)
-                else:
+            values = getattr(self, fieldname)
+            if type(values) is not list:
+                values = [values]
+            for value in values:
+                try:
                     field.clean(value, self)
-            except Exception as err:
-                print '%s: %s' % (fieldname, err)
+                except ValidationError as err:
+                    invalid.add('%s - %s - %s' % (fieldname, value, '/'.join(err.messages)))
+        if invalid:
+            raise ValidationError(','.join(invalid))
 
 # vim: ts=4 sw=4 et ai si sta:

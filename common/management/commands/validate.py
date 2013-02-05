@@ -35,8 +35,13 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        for user in User.objects.filter(uid__exact='lfilipoz'):
-            user.validate()
+        users = User.objects.all()
+        for user in users:
+            try:
+                user.validate()
+                print 'ack:%s' % (user.uid)
+            except Exception as err:
+                print 'nak:%s:%s' % (user.uid, ','.join(err.messages))
 
 
 # vim: set ts=4 sw=4 et ai si sta:
