@@ -218,13 +218,13 @@ class User(ldapdb.models.Model):
     object_classes = ['debianAccount']
     accountStatus               = CharField(    db_column='accountStatus',            editable = False)
     allowedHost                 = ListField(    db_column='allowedHost',              editable = False)
-    bATVToken                   = CharField(    db_column='bATVToken',                validators=[validate_bATVToken])
-    birthDate                   = CharField(    db_column='birthDate',                validators=[validate_birthDate])
+    bATVToken                   = CharField(    db_column='bATVToken',                validators=[validate_bATVToken], blank=True)
+    birthDate                   = CharField(    db_column='birthDate',                validators=[validate_birthDate], blank=True)
     c                           = CharField(    db_column='c',                        validators=[validate_c])
     cn                          = CharField(    db_column='cn',                       editable = False)
     dnsZoneEntry                = ListField(    db_column='dnsZoneEntry',             validators=[validate_dnsZoneEntry])
     emailForward                = CharField(    db_column='emailForward',             validators=[validate_emailForward])
-    facsimileTelephoneNumber    = CharField(    db_column='facsimileTelephoneNumber', validators=[validate_facsimileTelephoneNumber])
+    facsimileTelephoneNumber    = CharField(    db_column='facsimileTelephoneNumber', validators=[validate_facsimileTelephoneNumber], blank=True)
     gecos                       = CharField(    db_column='gecos',                    editable = False)
     gidNumber                   = CharField(    db_column='gidNumber',                editable = False)
     # TODO gender
@@ -494,5 +494,17 @@ class User(ldapdb.models.Model):
             return self.shadowExpire
     expire = property(_get_expire)
     
+    def validate(self):
+        for fieldname in self._meta.get_all_field_names():
+            (field, model, direct, m2m) = self._meta.get_field_by_name(fieldname)
+            value = getattr(self, fieldname)
+            try:
+                if type(value) == list:
+                    for v in value:
+                        field.clean(v, self)
+                else:
+                    field.clean(value, self)
+            except Exception as err:
+                print '%s: %s' % (fieldname, err)
 
 # vim: ts=4 sw=4 et ai si sta:
