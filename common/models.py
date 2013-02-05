@@ -23,11 +23,12 @@ import ldap
 ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, '/etc/ssl/certs/ca-certificates.crt')
 
 import pyparsing
-from pyparsing import CaselessKeyword, Keyword, LineEnd, LineStart, Literal, Optional, ParseException, QuotedString, Regex, Suppress, Word
+from pyparsing import CaselessKeyword, Keyword, LineEnd, LineStart, Literal, Optional, QuotedString, Regex, Suppress, Word
 from pyparsing import alphanums, delimitedList
 
 import base64
 import datetime
+import json
 import hashlib
 import struct
 import time
@@ -84,6 +85,16 @@ def validate_ipv6(val):
     if address.version() != 6:
         raise ValidationError('value is not an IPv6 address')
 
+def validate_accountStatus(val):
+    return # TODO
+
+def validate_allowedHost(val):
+    try:
+        if not Host.objects.filter(hostname=val):
+            raise
+    except:
+        ValidationError('unknown host')
+
 def validate_bATVToken(val):
     return # TODO
 
@@ -97,6 +108,9 @@ def validate_c(val):
     except:
         raise ValidationError('value is not a valid ISO3166-2 country code')
 
+def validate_cn(val):
+    return # TODO
+
 def validate_dnsZoneEntry(val):
     return # TODO ... but ListField
 
@@ -109,7 +123,20 @@ def validate_emailForward(val):
 def validate_facsimileTelephoneNumber(val):
     return # TODO
 
+def validate_gecos(val):
+    return # TODO
+
+def validate_gidNumber(val):
+    try:
+        if not Group.objects.filter(gidNumber__exact=val):
+            raise
+    except:
+        raise ValidationError('unknown group')
+
 def validate_ircNick(val):
+    return # TODO
+
+def validate_keyFingerPrint(val):
     return # TODO
 
 def validate_l(val):
@@ -129,7 +156,7 @@ def validate_sshRSAAuthKey(val):
 def validate_sshRSAAuthKey_key(encoded_key):
     decoded_key = base64.b64decode(encoded_key)
     if base64.b64encode(decoded_key).rstrip() != encoded_key:
-        raise ParseException('key has incorrect base64 encoding')
+        raise ValidationError('key has incorrect base64 encoding')
 
     # OpenSSH public keys of type 'ssh-rsa' have three parts, where each
     # part is encoded in OpenSSL MPINT format (4-byte big-endian bit-count
@@ -139,38 +166,38 @@ def validate_sshRSAAuthKey_key(encoded_key):
         x = struct.unpack('>I', decoded_key[:4])[0]
         key_type, decoded_key = decoded_key[4:x+4], decoded_key[x+4:]
     except:
-        raise ParseException('unable to extract type from key')
+        raise ValidationError('unable to extract type from key')
     if key_type != 'ssh-rsa':
-        raise ParseException('key is not an ssh-rsa key')
+        raise ValidationError('key is not an ssh-rsa key')
 
     try: # part 2: public exponent
         x = struct.unpack('>I', decoded_key[:4])[0]
         e, decoded_key = decoded_key[:x+4], decoded_key[x+4:]
     except:
-        raise ParseException('unable to extract public exponent from key')
+        raise ValidationError('unable to extract public exponent from key')
 
     try: # part 3: large prime
         x = struct.unpack('>I', decoded_key[:4])[0]
         n, decoded_key = decoded_key[:x+4], decoded_key[x+4:]
     except:
-        raise ParseException('unable to extract large prime from key')
+        raise ValidationError('unable to extract large prime from key')
 
     try: # creating a new RSA key
         created_key = RSA.new_pub_key((e, n))
     except:
-        raise ParseException('unable to create key using values extracted from provided key')
+        raise ValidationError('unable to create key using values extracted from provided key')
 
     if encoded_key != base64.b64encode('\0\0\0\7ssh-rsa%s%s' % created_key.pub()):
-        raise ParseException('newly created key and provided key do not match')
+        raise ValidationError('newly created key and provided key do not match')
 
     key_size = len(created_key)
     if key_size not in [1024, 2048, 4096]:
-        raise ParseException('key must have size 1024, 2048 or 4096 bits')
+        raise ValidationError('key must have size 1024, 2048 or 4096 bits')
 
     fingerprint = hashlib.md5(encoded_key).hexdigest()[12:]
     for line in file('/usr/share/ssh/blacklist.RSA-%d' % (key_size)):
         if fingerprint == line.rstrip():
-            raise ParseException('key is weak (debian openssl fiasco)')
+            raise ValidationError('key is weak (debian openssl fiasco)')
 
 def validate_sshRSAAuthKey_options(options):
     flag = (
@@ -193,11 +220,21 @@ def validate_sshRSAAuthKey_options(options):
     try:
         valid_options.parseString(options)
     except:
-        raise ParseException('options are not valid')
+        raise ValidationError('options are not valid')
 
 def validate_sshRSAAuthKey_allowed_hosts(allowed_hosts):
     if not set(allowed_hosts).issubset(set([x.hostname for x in Host.objects.all()])):
-        raise ParseException('unknown host in allowed_hosts')
+        raise ValidationError('unknown host in allowed_hosts')
+
+def validate_supplementaryGid(val):
+    try:
+        if '@' in val:
+            (val,hostname) = val.split('@', 1)
+            if not Host.objects.filter(hostname=hostname):
+                raise
+        Group.objects.get(gid__exact=val)
+    except:
+        raise ValidationError('not a valid group')
 
 
 class Host(ldapdb.models.Model):
@@ -231,23 +268,24 @@ class Group(ldapdb.models.Model):
 class User(ldapdb.models.Model):
     base_dn = 'ou=users,dc=debian,dc=org'
     object_classes = ['debianAccount']
-    accountStatus               = CharField(    db_column='accountStatus',            editable = False) # TODO validator
-    allowedHost                 = ListField(    db_column='allowedHost',              editable = False) # TODO validator
+    accountStatus               = CharField(    db_column='accountStatus',            validators=[validate_accountStatus], blank=True)
+    allowedHost                 = ListField(    db_column='allowedHost',              validators=[validate_allowedHost])
     bATVToken                   = CharField(    db_column='bATVToken',                validators=[validate_bATVToken], blank=True)
     birthDate                   = CharField(    db_column='birthDate',                validators=[validate_birthDate], blank=True)
     c                           = CharField(    db_column='c',                        validators=[validate_c], blank=True)
-    cn                          = CharField(    db_column='cn',                       editable = False) # TODO validator
+    cn                          = CharField(    db_column='cn',                       validators=[validate_cn])
     dnsZoneEntry                = ListField(    db_column='dnsZoneEntry',             validators=[validate_dnsZoneEntry])
     emailForward                = CharField(    db_column='emailForward',             validators=[validate_emailForward], blank=True)
     facsimileTelephoneNumber    = CharField(    db_column='facsimileTelephoneNumber', validators=[validate_facsimileTelephoneNumber], blank=True)
-    gecos                       = CharField(    db_column='gecos',                    editable = False) # TODO validator
-    gidNumber                   = CharField(    db_column='gidNumber',                editable = False) # TODO validator
+    gecos                       = CharField(    db_column='gecos',                    validators=[validate_gecos])
+    gidNumber                   = IntegerField( db_column='gidNumber',                validators=[validate_gidNumber])
     # TODO gender
+    # TODO homeDirectory - not stored in LDAP; required by posixAccount use a property?
     # TODO icqUin
     ircNick                     = CharField(    db_column='ircNick',                  validators=[validate_ircNick], blank=True)
     # TODO jabberJID
     # TODO jpegPhoto
-    keyFingerPrint              = CharField(    db_column='keyFingerPrint',           editable = False) # TODO validator
+    keyFingerPrint              = CharField(    db_column='keyFingerPrint',           validators=[validate_keyFingerPrint], blank=True)
     l                           = CharField(    db_column='l',                        validators=[validate_l], blank=True)
     # TODO labeledURI
     # TODO latitude
@@ -264,19 +302,19 @@ class User(ldapdb.models.Model):
     # TODO onVacation
     # TODO postalAddress
     # TODO postalCode
-    shadowExpire                = CharField(    db_column='shadowExpire',             editable = False)
-    shadowInactive              = CharField(    db_column='shadowInactive',           editable = False)
-    shadowLastChange            = CharField(    db_column='shadowLastChange',         editable = False)
-    shadowMax                   = CharField(    db_column='shadowMax',                editable = False)
-    shadowMin                   = CharField(    db_column='shadowMin',                editable = False)
-    shadowWarning               = CharField(    db_column='shadowWarning',            editable = False)
+    shadowExpire                = IntegerField( db_column='shadowExpire',             editable = False)
+    shadowInactive              = IntegerField( db_column='shadowInactive',           editable = False)
+    shadowLastChange            = IntegerField( db_column='shadowLastChange',         editable = False)
+    shadowMax                   = IntegerField( db_column='shadowMax',                editable = False)
+    shadowMin                   = IntegerField( db_column='shadowMin',                editable = False)
+    shadowWarning               = IntegerField( db_column='shadowWarning',            editable = False)
     sn                          = CharField(    db_column='sn',                       editable = False)
     sshRSAAuthKey               = ListField(    db_column='sshRSAAuthKey',            validators=[validate_sshRSAAuthKey], blank=True)
-    supplementaryGid            = ListField(    db_column='supplementaryGid',         editable = False)
+    supplementaryGid            = ListField(    db_column='supplementaryGid',         validators=[validate_supplementaryGid])
     # TODO telephoneNumber
     # TODO VoIP
     uid                         = CharField(    db_column='uid',                      editable = False, primary_key=True)
-    uidNumber                   = CharField(    db_column='uidNumber',                editable = False)
+    uidNumber                   = IntegerField( db_column='uidNumber',                editable = False)
     userPassword                = CharField(    db_column='userPassword',             editable = False)
 
     def __str__(self):
@@ -510,7 +548,7 @@ class User(ldapdb.models.Model):
     expire = property(_get_expire)
     
     def validate(self):
-        invalid = set()
+        errors = list()
         for fieldname in self._meta.get_all_field_names():
             (field, model, direct, m2m) = self._meta.get_field_by_name(fieldname)
             values = getattr(self, fieldname)
@@ -520,8 +558,8 @@ class User(ldapdb.models.Model):
                 try:
                     field.clean(value, self)
                 except ValidationError as err:
-                    invalid.add('%s - %s - %s' % (fieldname, value, '/'.join(err.messages)))
-        if invalid:
-            raise ValidationError(','.join(invalid))
+                    errors.append(json.dumps([fieldname, value, err.messages]))
+        if errors:
+            raise ValidationError(errors)
 
 # vim: ts=4 sw=4 et ai si sta:

@@ -15,6 +15,7 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
+from django.core.exceptions import ValidationError
 from common.models import Host, Group, User
 
 import optparse
@@ -22,26 +23,40 @@ import optparse
 class Command(BaseCommand):
     help = 'validate - blah blah' # TODO
     option_list = BaseCommand.option_list + (
-        optparse.make_option('--console',
+        optparse.make_option('--quiet',
             action='store_true',
             default=False,
-            help='send output to console'
+            help='enable quiet output'
         ),
-        optparse.make_option('--dryrun',
+        optparse.make_option('--verbose',
             action='store_true',
             default=False,
-            help='do not commit changes'
+            help='enable verbose output'
         ),
     )
 
     def handle(self, *args, **options):
-        users = User.objects.all()
-        for user in users:
-            try:
-                user.validate()
+        self.options = options
+        if args:
+            for uid in args:
+                user = User.objects.get(uid__exact=uid)
+                self.validate_user(user)
+        else:
+            users = User.objects.all()
+            for user in users:
+                self.validate_user(user)
+
+    def validate_user(self, user):
+        try:
+            user.validate()
+            if self.options['verbose']:
                 print 'ack:%s' % (user.uid)
-            except Exception as err:
-                print 'nak:%s:%s' % (user.uid, ','.join(err.messages))
+        except ValidationError as err:
+            if self.options['quiet']:
+                print 'nak:%s' % (user.uid)
+            else:
+                for message in err.messages:
+                    print 'nak:%s:%s' % (user.uid, message)
 
 
 # vim: set ts=4 sw=4 et ai si sta:
