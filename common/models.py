@@ -105,6 +105,9 @@ def validate_ircNick(val):
 def validate_l(val):
     return # TODO
 
+def validate_loginShell(val):
+    return # TODO
+
 def validate_sshRSAAuthKey(val):
     return # TODO ... but ListField
 
@@ -222,6 +225,7 @@ class User(ldapdb.models.Model):
     dnsZoneEntry                = ListField(    db_column='dnsZoneEntry',             validators=[validate_dnsZoneEntry])
     emailForward                = CharField(    db_column='emailForward',             validators=[validate_emailForward])
     facsimileTelephoneNumber    = CharField(    db_column='facsimileTelephoneNumber', validators=[validate_facsimileTelephoneNumber])
+    gecos                       = CharField(    db_column='gecos',                    editable = False)
     gidNumber                   = CharField(    db_column='gidNumber',                editable = False)
     # TODO gender
     # TODO icqUin
@@ -232,7 +236,7 @@ class User(ldapdb.models.Model):
     l                           = CharField(    db_column='l',                        validators=[validate_l])
     # TODO labeledURI
     # TODO latitude
-    # TODO loginShell
+    loginShell                  = CharField(    db_column='loginShell',               validators=[validate_loginShell])
     # TODO longitude
     # TODO mailCallout
     # TODO mailContentInspectionAction
@@ -245,6 +249,12 @@ class User(ldapdb.models.Model):
     # TODO onVacation
     # TODO postalAddress
     # TODO postalCode
+    shadowExpire                = CharField(    db_column='shadowExpire',             editable = False)
+    shadowInactive              = CharField(    db_column='shadowInactive',           editable = False)
+    shadowLastChange            = CharField(    db_column='shadowLastChange',         editable = False)
+    shadowMax                   = CharField(    db_column='shadowMax',                editable = False)
+    shadowMin                   = CharField(    db_column='shadowMin',                editable = False)
+    shadowWarning               = CharField(    db_column='shadowWarning',            editable = False)
     sn                          = CharField(    db_column='sn',                       editable = False)
     sshRSAAuthKey               = ListField(    db_column='sshRSAAuthKey',            validators=[validate_sshRSAAuthKey])
     supplementaryGid            = ListField(    db_column='supplementaryGid',         editable = False)
@@ -468,5 +478,21 @@ class User(ldapdb.models.Model):
                 return False
             return parsed >= datetime.datetime.now()
         return False
+
+    def _get_password(self):
+        p = self.userPassword
+        if not p.upper().startswith('{CRYPT}') or len(p) > 50:
+            return p
+        else:
+            return p[7:]
+    password = property(_get_password)
+
+    def _get_expire(self):
+        if not self.has_active_password():
+            return '1' # not 0; see Debian Bug #308229
+        else:
+            return self.shadowExpire
+    expire = property(_get_expire)
+    
 
 # vim: ts=4 sw=4 et ai si sta:

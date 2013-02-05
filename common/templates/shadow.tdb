@@ -1,0 +1,4 @@
+% for i, user in enumerate(host.users):
+0${i} ${user.uid}:${user.password}:${user.shadowLastChange}:${user.shadowMin}:${user.shadowMax}:${user.shadowWarning}:${user.shadowInactive}:${user.shadowExpire}:
+.${user.uid} ${user.uid}:${user.password}:${user.shadowLastChange}:${user.shadowMin}:${user.shadowMax}:${user.shadowWarning}:${user.shadowInactive}:${user.shadowExpire}:
+% endfor
