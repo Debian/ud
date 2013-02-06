@@ -1,4 +1,4 @@
 tmp/
-local.py
+secrets.py
 *.eml
 *.pyc
