@@ -15,31 +15,26 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
+from django.conf import settings
 from common.models import Host, Group, User
 from mako.template import Template
 from mako.lookup import TemplateLookup
 
 import errno
+import grp
 import optparse
 import os
+import tarfile
+import time
+
+from StringIO import StringIO
 
 class Command(BaseCommand):
-    help = 'generate - blah blah' # TODO
-    option_list = BaseCommand.option_list + (
-        optparse.make_option('--console',
-            action='store_true',
-            default=False,
-            help='send output to console'
-        ),
-        optparse.make_option('--dryrun',
-            action='store_true',
-            default=False,
-            help='do not commit changes'
-        ),
-    )
+    help = 'Generates, on a host-by-host basis, the set of files to be replicated.'
 
     def handle(self, *args, **options):
         self.options = options
+        template_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'templates'))
         self.marshall_data()
         self.render_output()
 
@@ -74,14 +69,19 @@ class Command(BaseCommand):
 
         # pass 1: find all users in allowedGroups (or subgroup there of)
         for user in self.users:
-            user.gid = _gidNumber2gid.get(user.gidNumber)
+            if user.gidNumber <= 100:
+                user.gid = grp.getgrgid(user.gidNumber)[0]
+            elif _gidNumber2gid.has_key(user.gidNumber):
+                user.gid = _gidNumber2gid[user.gidNumber]
+            else:
+                continue
             user.hid2gids = dict()
             for host in self.hosts:
                 host_gids = set(host.allowedGroups) | set(['adm'])
                 user_gids = set([user.gid]) | recurse(user.supplementaryGid, host.hostname)
-                user.hid2gids[host.hid] = user_gids
                 if user_gids & host_gids or user.is_allowed_by_hostacl(host.hostname):
                     if user.is_not_retired() and user.has_active_password():
+                        user.hid2gids[host.hid] = user_gids
                         host.users.add(user)
 
         # pass 2: ensure that for each user found, all his groups are included
@@ -94,8 +94,8 @@ class Command(BaseCommand):
                         host.groups.add(group)
 
     def render_output(self):
-        template_directory = '/home/lfilipoz/dev/ud/common/templates' # FIXME
-        output_directory = '/tmp/ud' # FIXME
+        template_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
+        output_directory = settings.CACHE_DIR
         for host in self.hosts:
             try:
                 os.makedirs(os.path.join(output_directory, host.hostname))
@@ -108,6 +108,19 @@ class Command(BaseCommand):
             for host in self.hosts:
                 with open(os.path.join(output_directory, host.hostname, template), 'w') as f:
                     f.write(t.render(host=host))
-
+        for host in self.hosts:
+            tf = tarfile.open(name=os.path.join(output_directory, host.hostname, 'ssh-keys.tar.gz'), mode='w:gz')
+            for user in host.users:
+                to = tarfile.TarInfo(name=user.uid)
+                contents = '\n'.join(user.sshRSAAuthKey) + '\n'
+                to.uid = 0
+                to.gid = 65534
+                to.uname = user.uid
+                to.gname = user.gid
+                to.mode  = 0400
+                to.mtime = int(time.time())
+                to.size = len(contents)
+                tf.addfile(to, StringIO(contents))
+            tf.close()
 
 # vim: set ts=4 sw=4 et ai si sta:

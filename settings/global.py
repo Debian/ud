@@ -99,3 +99,5 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
     'common',
 )
+
+CACHE_DIR = secrets.CACHE_DIR
