@@ -268,54 +268,58 @@ class Group(ldapdb.models.Model):
 class User(ldapdb.models.Model):
     base_dn = 'ou=users,dc=debian,dc=org'
     object_classes = ['debianAccount']
-    accountStatus               = CharField(    db_column='accountStatus',            validators=[validate_accountStatus], blank=True)
-    allowedHost                 = ListField(    db_column='allowedHost',              validators=[validate_allowedHost])
-    bATVToken                   = CharField(    db_column='bATVToken',                validators=[validate_bATVToken], blank=True)
-    birthDate                   = CharField(    db_column='birthDate',                validators=[validate_birthDate], blank=True)
-    c                           = CharField(    db_column='c',                        validators=[validate_c], blank=True)
-    cn                          = CharField(    db_column='cn',                       validators=[validate_cn])
-    dnsZoneEntry                = ListField(    db_column='dnsZoneEntry',             validators=[validate_dnsZoneEntry])
-    emailForward                = CharField(    db_column='emailForward',             validators=[validate_emailForward], blank=True)
-    facsimileTelephoneNumber    = CharField(    db_column='facsimileTelephoneNumber', validators=[validate_facsimileTelephoneNumber], blank=True)
-    gecos                       = CharField(    db_column='gecos',                    validators=[validate_gecos])
-    gidNumber                   = IntegerField( db_column='gidNumber',                validators=[validate_gidNumber])
+    accountStatus               = CharField(    db_column='accountStatus',                  validators=[validate_accountStatus], blank=True)
+    allowedHost                 = ListField(    db_column='allowedHost',                    validators=[validate_allowedHost])
+    bATVToken                   = CharField(    db_column='bATVToken',                      validators=[validate_bATVToken], blank=True)
+    birthDate                   = CharField(    db_column='birthDate',                      validators=[validate_birthDate], blank=True)
+    c                           = CharField(    db_column='c',                              validators=[validate_c], blank=True)
+    cn                          = CharField(    db_column='cn',                             validators=[validate_cn])
+    dnsZoneEntry                = ListField(    db_column='dnsZoneEntry',                   validators=[validate_dnsZoneEntry])
+    emailForward                = CharField(    db_column='emailForward',                   validators=[validate_emailForward], blank=True)
+    facsimileTelephoneNumber    = CharField(    db_column='facsimileTelephoneNumber',       validators=[validate_facsimileTelephoneNumber], blank=True)
+    gecos                       = CharField(    db_column='gecos',                          validators=[validate_gecos])
+    gidNumber                   = IntegerField( db_column='gidNumber',                      validators=[validate_gidNumber])
     # TODO gender
     # TODO homeDirectory - not stored in LDAP; required by posixAccount use a property?
     # TODO icqUin
-    ircNick                     = CharField(    db_column='ircNick',                  validators=[validate_ircNick], blank=True)
+    ircNick                     = CharField(    db_column='ircNick',                        validators=[validate_ircNick], blank=True)
     # TODO jabberJID
     # TODO jpegPhoto
-    keyFingerPrint              = CharField(    db_column='keyFingerPrint',           validators=[validate_keyFingerPrint], blank=True)
-    l                           = CharField(    db_column='l',                        validators=[validate_l], blank=True)
+    keyFingerPrint              = CharField(    db_column='keyFingerPrint',                 validators=[validate_keyFingerPrint], blank=True)
+    l                           = CharField(    db_column='l',                              validators=[validate_l], blank=True)
     # TODO labeledURI
-    # TODO latitude
-    loginShell                  = CharField(    db_column='loginShell',               validators=[validate_loginShell])
-    # TODO longitude
+    latitude                    = CharField(    db_column='latitude',                       blank=True) # TODO validator
+    loginShell                  = CharField(    db_column='loginShell',                     validators=[validate_loginShell])
+    longitude                   = CharField(    db_column='longitude',                      blank=True) # TODO validator
     # TODO mailCallout
-    # TODO mailContentInspectionAction
-    # TODO mailDefaultOptions
-    # TODO mailDisableMessage
-    # TODO mailGreylisting
-    # TODO mailRBL
-    # TODO mailRHSBL
-    # TODO mailWhitelist
+    mailContentInspectionAction = CharField(    db_column='mailContentInspectionAction',    blank=True) # TODO validator
+    mailDefaultOptions          = CharField(    db_column='mailDefaultOptions',             blank=True) # TODO validator
+    mailDisableMessage          = CharField(    db_column='mailDisableMessage',             blank=True) # TODO validator
+    mailCallout                 = CharField(    db_column='mailCallout',                    blank=True) # TODO validator
+    mailGreylisting             = CharField(    db_column='mailGreylisting',                blank=True) # TODO validator
+    mailRBL                     = ListField(    db_column='mailRBL',                        blank=True) # TODO validator
+    mailRHSBL                   = ListField(    db_column='mailRHSBL',                      blank=True) # TODO validator
+    mailWhitelist               = ListField(    db_column='mailWhitelist',                  blank=True) # TODO validator
     # TODO onVacation
     # TODO postalAddress
     # TODO postalCode
-    shadowExpire                = IntegerField( db_column='shadowExpire',             editable = False)
-    shadowInactive              = IntegerField( db_column='shadowInactive',           editable = False)
-    shadowLastChange            = IntegerField( db_column='shadowLastChange',         editable = False)
-    shadowMax                   = IntegerField( db_column='shadowMax',                editable = False)
-    shadowMin                   = IntegerField( db_column='shadowMin',                editable = False)
-    shadowWarning               = IntegerField( db_column='shadowWarning',            editable = False)
-    sn                          = CharField(    db_column='sn',                       editable = False)
-    sshRSAAuthKey               = ListField(    db_column='sshRSAAuthKey',            validators=[validate_sshRSAAuthKey], blank=True)
-    supplementaryGid            = ListField(    db_column='supplementaryGid',         validators=[validate_supplementaryGid])
+    privateSub                  = CharField(    db_column='privateSub',                     blank=True) # TODO validator
+    shadowExpire                = IntegerField( db_column='shadowExpire',                   editable = False)
+    shadowInactive              = IntegerField( db_column='shadowInactive',                 editable = False)
+    shadowLastChange            = IntegerField( db_column='shadowLastChange',               editable = False)
+    shadowMax                   = IntegerField( db_column='shadowMax',                      editable = False)
+    shadowMin                   = IntegerField( db_column='shadowMin',                      editable = False)
+    shadowWarning               = IntegerField( db_column='shadowWarning',                  editable = False)
+    sn                          = CharField(    db_column='sn',                             editable = False)
+    sshRSAAuthKey               = ListField(    db_column='sshRSAAuthKey',                  validators=[validate_sshRSAAuthKey], blank=True)
+    supplementaryGid            = ListField(    db_column='supplementaryGid',               validators=[validate_supplementaryGid])
     # TODO telephoneNumber
     # TODO VoIP
-    uid                         = CharField(    db_column='uid',                      editable = False, primary_key=True)
-    uidNumber                   = IntegerField( db_column='uidNumber',                editable = False)
-    userPassword                = CharField(    db_column='userPassword',             editable = False)
+    uid                         = CharField(    db_column='uid',                            editable = False, primary_key=True)
+    uidNumber                   = IntegerField( db_column='uidNumber',                      editable = False)
+    userPassword                = CharField(    db_column='userPassword',                   editable = False)
+    voipPassword                = CharField(    db_column='voipPassword',                   blank=True)
+    webPassword                 = CharField(    db_column='webPassword',                    blank=True)
 
     def __str__(self):
         return self.uid
@@ -479,6 +483,9 @@ class User(ldapdb.models.Model):
             value += ' %s' % (comment)
         self.__update_ListField('sshRSAAuthKey', query, value)
 
+    def is_active(self):
+        return self.is_not_retired() and len(self.keyFingerPrint)
+
     def is_retired(self):
         if self.accountStatus:
             parts = self.accountStatus.split()
@@ -511,7 +518,7 @@ class User(ldapdb.models.Model):
         return True
 
     def has_locked_password(self):
-        return self.has_active_password()
+        return not self.has_active_password()
 
     def is_allowed_by_hostacl(self, desired_hostname):
         if not self.allowedHost:

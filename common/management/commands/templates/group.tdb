@@ -1,5 +1,5 @@
-% for i, group in enumerate(host.groups):
-0${i} ${group.gid}:x:${group.gidNumber}:${ ','.join([x.uid for x in group.hid2users[host.hid]]) }
-.${group.gid} ${group.gid}:x:${group.gidNumber}:${ ','.join([x.uid for x in group.hid2users[host.hid]]) }
-=${group.gidNumber} ${group.gid}:x:${group.gidNumber}:${ ','.join([x.uid for x in group.hid2users[host.hid]]) }
+% for i, group in enumerate(instance.groups):
+0${i} ${group.gid}:x:${group.gidNumber}:${ ','.join([x.uid for x in group.hid2users[instance.hid]]) }
+.${group.gid} ${group.gid}:x:${group.gidNumber}:${ ','.join([x.uid for x in group.hid2users[instance.hid]]) }
+=${group.gidNumber} ${group.gid}:x:${group.gidNumber}:${ ','.join([x.uid for x in group.hid2users[instance.hid]]) }
 % endfor

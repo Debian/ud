@@ -1,0 +1,5 @@
+% for i, user in enumerate(instance.users):
+% if user.has_locked_password():
+${user.uid}:Account is locked
+% endif
+% endfor

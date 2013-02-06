@@ -1,0 +1,5 @@
+% for i, user in enumerate(instance.users):
+% if user.is_not_retired() and user.mailDisableMessage:
+${user.uid}: ${user.mailDisableMessage}
+% endif
+% endfor

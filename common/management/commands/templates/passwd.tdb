@@ -1,4 +1,4 @@
-% for i, user in enumerate(host.users):
+% for i, user in enumerate(instance.users):
 0${i} ${user.uid}:x:${user.uidNumber}:${user.gidNumber}:${user.gecos[:100]}:/home/${user.uid}:${user.loginShell[:50]}
 .${user.uid} ${user.uid}:x:${user.uidNumber}:${user.gidNumber}:${user.gecos[:100]}:/home/${user.uid}:${user.loginShell[:50]}
 =${user.uidNumber} ${user.uid}:x:${user.uidNumber}:${user.gidNumber}:${user.gecos[:100]}:/home/${user.uid}:${user.loginShell[:50]}
