@@ -1,0 +1,7 @@
+% for i, host in enumerate(instance.hosts):
+%     if host.hostname and host.ipHostNumber:
+%         for sshRSAHostKey in host.sshRSAHostKey:
+command="flock -s /var/cache/userdir-ldap/hosts/ud-generate.lock -c 'rsync --server --sender -pr . /var/cache/userdir-ldap/hosts/${host.hostname}'",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,from="${','.join(host.ipHostNumber)}" ${sshRSAHostKey}
+%         endfor
+%     endif
+% endfor

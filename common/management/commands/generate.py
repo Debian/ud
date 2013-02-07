@@ -23,6 +23,8 @@ from mako.lookup import TemplateLookup
 import cdb
 import errno
 import grp
+import json
+import lockfile
 import optparse
 import os
 import posix
@@ -39,10 +41,28 @@ class Command(BaseCommand):
         self.dstdir = settings.CACHE_DIR
         self.tpldir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
         self.finder = TemplateLookup(directories=[self.tpldir], encoding_errors='ignore', output_encoding='utf-8')
-        self.marshall_data()
-        self.generate()
+        lock = lockfile.FileLock(os.path.join(self.dstdir, 'ud-generate'))
+        try:
+            lock.acquire(timeout=5)
+        except lockfile.AlreadyLocked as err:
+            raise CommandError('the lockfile is already locked')
+        except lockfile.LockFailed as err:
+            raise CommandError('locking the lockfile failed')
+        except lockfile.LockTimeout as err:
+            raise CommandError('timed out waiting to lock the lockfile')
+        try:
+            # TODO need_update = ...
+            # TODO if need_update:
+            # TODO     with open(os.path.join(self.dstdir, 'last_update.trace'), 'w') as tf:
+            self.marshall()
+            self.generate()
+            #               tf.write(...)
+        except:
+            raise CommandError('something failed')
+        finally:
+            lock.release()
 
-    def marshall_data(self):
+    def marshall(self):
 
         def recurse(gids, hostname):
             _gids = set()
@@ -102,34 +122,38 @@ class Command(BaseCommand):
         self.makedirs(dstdir)
 
         # accounts = filter(lambda x: not IsRetired(x), accounts)
+        # equivalent filter: user.is_not_retired()
         self.generate_tpl_file(dstdir, 'disabled-accounts', self)
         self.generate_tpl_file(dstdir, 'mail-disable', self)
         self.generate_cdb_file(dstdir, 'mail-forward.cdb', self, 'emailForward')
         self.generate_cdb_file(dstdir, 'mail-contentinspectionaction.cdb', self, 'mailContentInspectionAction')
         self.generate_tpl_file(dstdir, 'debian-private', self)
-        # GenSSHKnown(host_attrs, global_dir+"authorized_keys", 'authorized_keys', global_dir+'ud-generate.lock')
+        self.generate_tpl_file(dstdir, 'authorized_keys', self)     # FIXME hard-coded path in template ... could use settings.CACHE_DIR?
         self.generate_tpl_file(dstdir, 'mail-greylist', self)
         self.generate_tpl_file(dstdir, 'mail-callout', self)
         self.generate_tpl_file(dstdir, 'mail-rbl', self)
         self.generate_tpl_file(dstdir, 'mail-rhsbl', self)
         self.generate_tpl_file(dstdir, 'mail-whitelist', self)
         self.generate_tpl_file(dstdir, 'web-passwords', self)
-        # GenVoipPassword(accounts, global_dir + "voip-passwords")
-        # GenKeyrings(global_dir)
+        # TODO GenVoipPassword(accounts, global_dir + "voip-passwords")
         self.generate_tpl_file(dstdir, 'forward-alias', self)
-        # GenAllUsers(accounts, global_dir + 'all-accounts.json')
-        #
+        with open(os.path.join(dstdir, 'all-accounts.json'), 'w') as f:
+            data = list()
+            for user in self.users:
+                if user.is_not_retired():
+                    active = user.has_active_password() and not user.has_expired_password()
+                    data.append({'uid':user.uid, 'uidNumber':user.uidNumber, 'active':active})
+            json.dump(data, f, sort_keys=True, indent=4, separators=(',',':'))
+
         # accounts = filter(lambda a: not a in accounts_disabled, accounts)
-        # ssh_userkeys = GenSSHShadow(global_dir, accounts)
-        self.generate_tpl_file(dstdir, 'markers', self) # TODO finish the template
-        # GenSSHKnown(host_attrs, global_dir + "ssh_known_hosts")
-        # GenHosts(host_attrs, global_dir + "debianhosts")
-        # GenSSHGitolite(accounts, global_dir + "ssh-gitolite")
-        # GenDNS(accounts, global_dir + "dns-zone")
-        # GenZoneRecords(host_attrs, global_dir + "dns-sshfp")
-        #
-        # for host in hosts:
-        #     generate_host(host, accounts)
+        # equivalent filter: user.is_not_retired() and user.has_active_password()
+        self.generate_tpl_file(dstdir, 'markers', self)             # FIXME wrong count of users... check filter
+        # TODO GenSSHKnown(host_attrs, global_dir + "ssh_known_hosts")
+        # TODO GenHosts(host_attrs, global_dir + "debianhosts")
+        # TODO GenDNS(accounts, global_dir + "dns-zone")
+        # TODO GenZoneRecords(host_attrs, global_dir + "dns-sshfp")
+        # TODO GenSSHGitolite(accounts, global_dir + "ssh-gitolite")
+        # TODO GenKeyrings(global_dir)
 
         for host in self.hosts:
             self.generate_host(host)
@@ -138,43 +162,45 @@ class Command(BaseCommand):
         dstdir = os.path.join(self.dstdir, host.hostname)
         self.makedirs(dstdir)
 
-        self.link(self.dstdir, dstdir, 'disabled-accounts')
-        self.generate_tpl_file(dstdir, 'passwd.tdb', host) # TODO if 'NOPASSWD' in ExtraList: XXX x vs *
+        self.generate_tpl_file(dstdir, 'passwd.tdb', host)          # FIXME if 'NOPASSWD' in ExtraList: x vs * in template
         self.generate_tpl_file(dstdir, 'group.tdb', host)
-        # GenShadowSudo(accounts, OutDir + "sudo-passwd", ('UNTRUSTED' in ExtraList) or ('NOPASSWD' in ExtraList), current_host)
+        # TODO GenShadowSudo(accounts, OutDir + "sudo-passwd", ('UNTRUSTED' in ExtraList) or ('NOPASSWD' in ExtraList), current_host)
         self.generate_tpl_file(dstdir, 'shadow.tdb', host) # if not 'NOPASSWD' in ExtraList:
+        self.generate_cdb_file(dstdir, 'user-forward.cdb', host, 'emailForward')
+        self.generate_cdb_file(dstdir, 'batv-tokens.cdb', host, 'bATVToken')
+        self.generate_cdb_file(dstdir, 'default-mail-options.cdb', host, 'mailDefaultOptions')
+
+        self.link(self.dstdir, dstdir, 'disabled-accounts')
         self.link(self.dstdir, dstdir, 'mail-disable')
         self.link(self.dstdir, dstdir, 'mail-forward.cdb')
         self.link(self.dstdir, dstdir, 'mail-contentinspectionaction.cdb')
-        # DoLink(global_dir, OutDir, "debian-private") # if 'PRIVATE' in ExtraList:
-        # DoLink(global_dir, OutDir, "authorized_keys") # if 'AUTHKEYS' in ExtraList:
+        # TODO self.link(self.dstdir, dstdir, 'debian-private', ('PRIVATE' not in host.extraOptions))
+        self.link(self.dstdir, dstdir, 'authorized_keys', ('AUTHKEYS' in host.extraOptions))
         self.link(self.dstdir, dstdir, 'mail-greylist')
         self.link(self.dstdir, dstdir, 'mail-callout')
         self.link(self.dstdir, dstdir, 'mail-rbl')
         self.link(self.dstdir, dstdir, 'mail-rhsbl')
         self.link(self.dstdir, dstdir, 'mail-whitelist')
-        # DoLink(global_dir, OutDir, "web-passwords") # if 'WEB-PASSWORDS' in ExtraList:
-        # DoLink(global_dir, OutDir, "voip-passwords") # if 'VOIP-PASSWORDS' in ExtraList:
+        # TODO self.link(self.dstdir, dstdir, 'web-passwords', ('WEB-PASSWORDS' not in host.extraOptions))
+        # TODO self.link(self.dstdir, dstdir, 'voip-passwords', ('VOIP-PASSWORDS' not in host.extraOptions))
         self.link(self.dstdir, dstdir, 'forward-alias')
-        # DoLink(global_dir, OutDir, "markers") # if not 'NOMARKERS' in ExtraList:
-        # DoLink(global_dir, OutDir, "ssh_known_hosts")
-        # DoLink(global_dir, OutDir, "debianhosts")
-        # DoLink(global_dir, OutDir, "all-accounts.json")
-        self.generate_cdb_file(dstdir, 'user-forward.cdb', host, 'emailForward')
-        self.generate_cdb_file(dstdir, 'batv-tokens.cdb', host, 'bATVToken')
-        self.generate_cdb_file(dstdir, 'default-mail-options.cdb', host, 'mailDefaultOptions')
-        # DoLink(global_dir, OutDir, "dns-zone") # if 'DNS' in ExtraList:
-        # DoLink(global_dir, OutDir, "dns-sshfp") # if 'DNS' in ExtraList:
-        # GenBSMTP(accounts, OutDir + "bsmtp", HomePrefix) # if 'BSMTP' in ExtraList:
-        # DoLink(global_dir, OutDir, "ssh-gitolite") # if 'GITOLITE' in ExtraList:
-        # TODO keyring stuff
-        # DoLink(global_dir, OutDir, "last_update.trace")
+        self.link(self.dstdir, dstdir, 'all-accounts.json')
 
-        # generate a tarfile of sshRSAAuthKeys
+        self.link(self.dstdir, dstdir, 'markers', ('NOMARKERS' not in host.extraOptions))
+        # TODO self.link(self.dstdir, dstdir, 'ssh_known_hosts')
+        # TODO self.link(self.dstdir, dstdir, 'debianhosts')
+        # TODO self.link(self.dstdir, dstdir, 'dns-zone', ('DNS' in host.extraOptions))
+        # TODO self.link(self.dstdir, dstdir, 'dns-sshfp', ('DNS' in host.extraOptions))
+        # TODO self.generate_tpl_file(dstdir, 'bsmtp', host, ('BSMTP' in host.extraOptions))
+        # TODO self.link(self.dstdir, dstdir, 'ssh-gitolite', ('GITOLITE' in host.extraOptions))
+        # TODO keyring stuff
+
+        # TODO self.link(self.dstdir, dstdir, 'last_update.trace')
+
         tf = tarfile.open(name=os.path.join(self.dstdir, host.hostname, 'ssh-keys.tar.gz'), mode='w:gz')
         for user in host.users:
             to = tarfile.TarInfo(name=user.uid)
-            contents = '\n'.join(user.sshRSAAuthKey) + '\n' # TODO handle allowed_hosts
+            contents = '\n'.join(user.sshRSAAuthKey) + '\n'         # FIXME handle allowed_hosts
             to.uid = 0
             to.gid = 65534
             to.uname = user.uid # XXX the magic happens here
@@ -192,26 +218,29 @@ class Command(BaseCommand):
             if exception.errno != errno.EEXIST:
                 raise
 
-    def link(self, srcdir, dstdir, filename):
-       try:
-          posix.remove(os.path.join(dstdir, filename))
-       except:
-          pass
-       posix.link(os.path.join(srcdir, filename), os.path.join(dstdir, filename))
+    def link(self, srcdir, dstdir, filename, guard=True):
+        if guard:
+            try:
+                posix.remove(os.path.join(dstdir, filename))
+            except:
+                pass
+            posix.link(os.path.join(srcdir, filename), os.path.join(dstdir, filename))
 
-    def generate_tpl_file(self, dstdir, template, instance):
-        t = self.finder.get_template(template)
-        with open(os.path.join(dstdir, template), 'w') as f:
-            f.write(t.render(instance=instance))
+    def generate_tpl_file(self, dstdir, template, instance, guard=True):
+        if guard:
+            t = self.finder.get_template(template)
+            with open(os.path.join(dstdir, template), 'w') as f:
+                f.write(t.render(instance=instance))
 
-    def generate_cdb_file(self, dstdir, filename, instance, key):
-        fn = os.path.join(dstdir, filename).encode('ascii', 'ignore')
-        maker = cdb.cdbmake(fn, fn + '.tmp')
-        for user in instance.users:
-            if user.is_not_retired(): # XXX really?
-                val = getattr(user, key)
-                if val:
-                    maker.add(user.uid, val)
-        maker.finish()
+    def generate_cdb_file(self, dstdir, filename, instance, key, guard=True):
+        if guard:
+            fn = os.path.join(dstdir, filename).encode('ascii', 'ignore')
+            maker = cdb.cdbmake(fn, fn + '.tmp')
+            for user in instance.users:
+                if user.is_not_retired():                           # FIXME really?
+                    val = getattr(user, key)
+                    if val:
+                        maker.add(user.uid, val)
+            maker.finish()
 
 # vim: set ts=4 sw=4 et ai si sta:

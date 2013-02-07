@@ -240,9 +240,12 @@ def validate_supplementaryGid(val):
 class Host(ldapdb.models.Model):
     base_dn = 'ou=hosts,dc=debian,dc=org'
     object_classes = ['debianServer']
-    allowedGroups               = ListField(    db_column='allowedGroups',            editable = False)
-    hid                         = CharField(    db_column='host',                     editable = False, primary_key=True)
-    hostname                    = CharField(    db_column='hostname',                 editable = False)
+    allowedGroups               = ListField(    db_column='allowedGroups',                  validators=[])                          # TODO validator
+    extraOptions                = ListField(    db_column='extraOptions',                   validators=[])                          # TODO validator
+    hid                         = CharField(    db_column='host',                           validators=[], primary_key=True)        # TODO validator
+    hostname                    = CharField(    db_column='hostname',                       validators=[])                          # TODO validator
+    ipHostNumber                = ListField(    db_column='ipHostNumber',                   validators=[])                          # TODO validator
+    sshRSAHostKey               = ListField(    db_column='sshRSAHostKey',                  validators=[], blank=True)              # TODO validator
 
     def __str__(self):
         return self.hid
@@ -254,9 +257,9 @@ class Host(ldapdb.models.Model):
 class Group(ldapdb.models.Model):
     base_dn = 'ou=users,dc=debian,dc=org'
     object_classes = ['debianGroup']
-    gid                         = CharField(    db_column='gid',                      editable = False, primary_key=True)
-    gidNumber                   = IntegerField( db_column='gidNumber',                editable = False)
-    subGroup                    = ListField(    db_column='subGroup',                 editable = False)
+    gid                         = CharField(    db_column='gid',                            validators=[], primary_key=True)        # TODO validator
+    gidNumber                   = IntegerField( db_column='gidNumber',                      validators=[])                          # TODO validator
+    subGroup                    = ListField(    db_column='subGroup',                       validators=[])                          # TODO validator
 
     def __str__(self):
         return self.gid
@@ -288,36 +291,36 @@ class User(ldapdb.models.Model):
     keyFingerPrint              = CharField(    db_column='keyFingerPrint',                 validators=[validate_keyFingerPrint], blank=True)
     l                           = CharField(    db_column='l',                              validators=[validate_l], blank=True)
     # TODO labeledURI
-    latitude                    = CharField(    db_column='latitude',                       blank=True) # TODO validator
+    latitude                    = CharField(    db_column='latitude',                       validators=[], blank=True)              # TODO validator
     loginShell                  = CharField(    db_column='loginShell',                     validators=[validate_loginShell])
-    longitude                   = CharField(    db_column='longitude',                      blank=True) # TODO validator
+    longitude                   = CharField(    db_column='longitude',                      validators=[], blank=True)              # TODO validator
     # TODO mailCallout
-    mailContentInspectionAction = CharField(    db_column='mailContentInspectionAction',    blank=True) # TODO validator
-    mailDefaultOptions          = CharField(    db_column='mailDefaultOptions',             blank=True) # TODO validator
-    mailDisableMessage          = CharField(    db_column='mailDisableMessage',             blank=True) # TODO validator
-    mailCallout                 = CharField(    db_column='mailCallout',                    blank=True) # TODO validator
-    mailGreylisting             = CharField(    db_column='mailGreylisting',                blank=True) # TODO validator
-    mailRBL                     = ListField(    db_column='mailRBL',                        blank=True) # TODO validator
-    mailRHSBL                   = ListField(    db_column='mailRHSBL',                      blank=True) # TODO validator
-    mailWhitelist               = ListField(    db_column='mailWhitelist',                  blank=True) # TODO validator
+    mailContentInspectionAction = CharField(    db_column='mailContentInspectionAction',    validators=[], blank=True)              # TODO validator
+    mailDefaultOptions          = CharField(    db_column='mailDefaultOptions',             validators=[], blank=True)              # TODO validator
+    mailDisableMessage          = CharField(    db_column='mailDisableMessage',             validators=[], blank=True)              # TODO validator
+    mailCallout                 = CharField(    db_column='mailCallout',                    validators=[], blank=True)              # TODO validator
+    mailGreylisting             = CharField(    db_column='mailGreylisting',                validators=[], blank=True)              # TODO validator
+    mailRBL                     = ListField(    db_column='mailRBL',                        validators=[], blank=True)              # TODO validator
+    mailRHSBL                   = ListField(    db_column='mailRHSBL',                      validators=[], blank=True)              # TODO validator
+    mailWhitelist               = ListField(    db_column='mailWhitelist',                  validators=[], blank=True)              # TODO validator
     # TODO onVacation
     # TODO postalAddress
     # TODO postalCode
-    privateSub                  = CharField(    db_column='privateSub',                     blank=True) # TODO validator
-    shadowExpire                = IntegerField( db_column='shadowExpire',                   editable = False)
-    shadowInactive              = IntegerField( db_column='shadowInactive',                 editable = False)
-    shadowLastChange            = IntegerField( db_column='shadowLastChange',               editable = False)
-    shadowMax                   = IntegerField( db_column='shadowMax',                      editable = False)
-    shadowMin                   = IntegerField( db_column='shadowMin',                      editable = False)
-    shadowWarning               = IntegerField( db_column='shadowWarning',                  editable = False)
-    sn                          = CharField(    db_column='sn',                             editable = False)
+    privateSub                  = CharField(    db_column='privateSub',                     validators=[], blank=True)              # TODO validator
+    shadowExpire                = IntegerField( db_column='shadowExpire',                   validators=[])                          # TODO validator
+    shadowInactive              = IntegerField( db_column='shadowInactive',                 validators=[])                          # TODO validator
+    shadowLastChange            = IntegerField( db_column='shadowLastChange',               validators=[])                          # TODO validator
+    shadowMax                   = IntegerField( db_column='shadowMax',                      validators=[])                          # TODO validator
+    shadowMin                   = IntegerField( db_column='shadowMin',                      validators=[])                          # TODO validator
+    shadowWarning               = IntegerField( db_column='shadowWarning',                  validators=[])                          # TODO validator
+    sn                          = CharField(    db_column='sn',                             validators=[])                          # TODO validator
     sshRSAAuthKey               = ListField(    db_column='sshRSAAuthKey',                  validators=[validate_sshRSAAuthKey], blank=True)
     supplementaryGid            = ListField(    db_column='supplementaryGid',               validators=[validate_supplementaryGid])
     # TODO telephoneNumber
     # TODO VoIP
-    uid                         = CharField(    db_column='uid',                            editable = False, primary_key=True)
-    uidNumber                   = IntegerField( db_column='uidNumber',                      editable = False)
-    userPassword                = CharField(    db_column='userPassword',                   editable = False)
+    uid                         = CharField(    db_column='uid',                            validators=[], primary_key=True)
+    uidNumber                   = IntegerField( db_column='uidNumber',                      validators=[])
+    userPassword                = CharField(    db_column='userPassword',                   validators=[])
     voipPassword                = CharField(    db_column='voipPassword',                   blank=True)
     webPassword                 = CharField(    db_column='webPassword',                    blank=True)
 
@@ -519,6 +522,11 @@ class User(ldapdb.models.Model):
 
     def has_locked_password(self):
         return not self.has_active_password()
+
+    def has_expired_password(self):
+        if self.shadowExpire and self.shadowExpire < (time.time() / 3600 / 24):
+            return True
+        return False
 
     def is_allowed_by_hostacl(self, desired_hostname):
         if not self.allowedHost:
