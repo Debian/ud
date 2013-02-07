@@ -1,23 +1,34 @@
-depends:
-  ca-certificates
-  python-django
-  python-ipy
-  python-pyme
-  python-pyparsing
-  python-m2crypto
-  django-ldapdb (customized)
-  openssh-blacklist
-  openssh-blacklist-extra
-
-ud-mailgate:
-  todo:
-    DoDel(Line,Attrs)
-    DoPosition(Line,Attrs)
-    DoRBL(Line,Attrs)
-    DoConfirmSudopassword(Line)
-    add all attributes complete with validators
-  done:
-    DoArbChange(Line,Attrs)
-    DoDNS(Line,Attrs,DnRecord)
-    DoSSH(Line,Attrs,badkeys,GetAttr(DnRecord,"uid"))
-
+- runtime dependencies
+  - ca-certificates
+  - django-ldapdb (customized)
+  - openssh-blacklist
+  - openssh-blacklist-extra
+  - python-cdb
+  - python-dateutil
+  - python-django
+  - python-ipy
+  - python-lockfile
+  - python-lxml
+  - python-mako
+  - python-pycountry
+  - python-pyme
+  - python-pyparsing
+  - python-m2crypto
+- action items
+  - Host model
+    - complete validators
+  - Group model
+    - complete validators
+  - User model
+    - complete validators
+  - generate command
+  - mailgate command
+    - DoDel(Line,Attrs)
+    - DoPosition(Line,Attrs)
+    - DoRBL(Line,Attrs)
+    - DoConfirmSudopassword(Line)
+    - simplify mailgate.py parser
+    - move argument parsing into models.py to
+      leverate validators for multiple purposes
+  - replicate command
+  - validate command
