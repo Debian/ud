@@ -16,6 +16,7 @@
 
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
+from django.db import connections
 from common.models import Host, Group, User
 from mako.template import Template
 from mako.lookup import TemplateLookup
@@ -24,17 +25,26 @@ import cdb
 import errno
 import grp
 import json
+import ldap
 import lockfile
 import optparse
 import os
 import posix
 import tarfile
 import time
+import yaml
 
 from cStringIO import StringIO
 
 class Command(BaseCommand):
     help = 'Generates, on a host-by-host basis, the set of files to be replicated.'
+    option_list = BaseCommand.option_list + (
+        optparse.make_option('--force',
+            action='store_true',
+            default=False,
+            help='force generate'
+        ),
+    )
 
     def handle(self, *args, **options):
         self.options = options
@@ -51,17 +61,29 @@ class Command(BaseCommand):
         except lockfile.LockTimeout as err:
             raise CommandError('timed out waiting to lock the lockfile')
         try:
-            # TODO need_update = ...
-            # TODO if need_update:
-            # TODO     with open(os.path.join(self.dstdir, 'last_update.trace'), 'w') as tf:
-            self.marshall()
-            self.generate()
-            #               tf.write(...)
-        except:
-            raise CommandError('something failed')
+            if self.need_update() or self.options['force']:
+                self.marshall()
+                self.generate()
+                with open(os.path.join(self.dstdir, 'last_update.trace'), 'w') as f:
+                    f.write(yaml.dump({'last_ldap_mod': self.last_ldap_mod})) # TODO 'last_unix_mod': self.last_unix_mod
+        except Exception as err:
+            raise CommandError(err)
         finally:
             lock.release()
 
+    def need_update(self):
+        query = '(&(&(!(reqMod=activity-from*))(!(reqMod=activity-pgp*)))(|(reqType=add)(reqType=delete)(reqType=modify)(reqType=modrdn)))'
+        mods = connections['ldap'].cursor().connection.search_s('cn=log', ldap.SCOPE_ONELEVEL, query, ['reqEnd'])
+        self.last_ldap_mod = max([mod[1]['reqEnd'] for mod in mods])[0].split('.')[0]
+        try:
+            with open(os.path.join(self.dstdir, 'last_update.trace'), 'r') as f:
+                y = yaml.load(f)
+                return self.last_ldap_mod > y.get('last_ldap_mod', '0') # TODO self.last_unix_mod > y.get('last_unix_mod')
+        except IOError as err:
+            if err.errno != errno.ENOENT:
+                raise err
+        return True
+        
     def marshall(self):
 
         def recurse(gids, hostname):
