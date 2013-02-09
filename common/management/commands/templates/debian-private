@@ -1,4 +1,4 @@
-% for i, user in enumerate(instance.users):
+% for i, user in enumerate(users):
 % if user.is_active() and user.privateSub:
 ${user.privateSub}
 % endif

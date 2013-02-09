@@ -1,4 +1,4 @@
-% for i, user in enumerate(instance.users):
+% for i, user in enumerate(users):
 % if user.is_not_retired() and user.mailRHSBL:
 ${user.uid}: ${' : '.join([x + '/$sender_address_domain' for x in user.mailRHSBL])}
 % endif

@@ -29,6 +29,7 @@ import ldap
 import lockfile
 import optparse
 import os
+import time
 import posix
 import tarfile
 import time
@@ -65,7 +66,7 @@ class Command(BaseCommand):
                 self.marshall()
                 self.generate()
                 with open(os.path.join(self.dstdir, 'last_update.trace'), 'w') as f:
-                    f.write(yaml.dump({'last_ldap_mod': self.last_ldap_mod})) # TODO 'last_unix_mod': self.last_unix_mod
+                    f.write(yaml.dump({'last_ldap_mod': self.last_ldap_mod, 'last_generate': int(time.time())}))
         except Exception as err:
             raise CommandError(err)
         finally:
@@ -74,11 +75,11 @@ class Command(BaseCommand):
     def need_update(self):
         query = '(&(&(!(reqMod=activity-from*))(!(reqMod=activity-pgp*)))(|(reqType=add)(reqType=delete)(reqType=modify)(reqType=modrdn)))'
         mods = connections['ldap'].cursor().connection.search_s('cn=log', ldap.SCOPE_ONELEVEL, query, ['reqEnd'])
-        self.last_ldap_mod = max([mod[1]['reqEnd'] for mod in mods])[0].split('.')[0]
+        self.last_ldap_mod = long(max([mod[1]['reqEnd'] for mod in mods])[0].split('.')[0])
         try:
             with open(os.path.join(self.dstdir, 'last_update.trace'), 'r') as f:
                 y = yaml.load(f)
-                return self.last_ldap_mod > y.get('last_ldap_mod', '0') # TODO self.last_unix_mod > y.get('last_unix_mod')
+                return self.last_ldap_mod > y.get('last_ldap_mod', 0) # TODO or last_unix_mod > y.get('last_unix_mod')
         except IOError as err:
             if err.errno != errno.ENOENT:
                 raise err
@@ -143,22 +144,23 @@ class Command(BaseCommand):
         dstdir = self.dstdir
         self.makedirs(dstdir)
 
+        self.generate_tpl_file(dstdir, 'disabled-accounts', users=self.users)
+
         # accounts = filter(lambda x: not IsRetired(x), accounts)
         # equivalent filter: user.is_not_retired()
-        self.generate_tpl_file(dstdir, 'disabled-accounts', self)
-        self.generate_tpl_file(dstdir, 'mail-disable', self)
-        self.generate_cdb_file(dstdir, 'mail-forward.cdb', self, 'emailForward')
-        self.generate_cdb_file(dstdir, 'mail-contentinspectionaction.cdb', self, 'mailContentInspectionAction')
-        self.generate_tpl_file(dstdir, 'debian-private', self)
-        self.generate_tpl_file(dstdir, 'authorized_keys', self)     # FIXME hard-coded path in template ... could use settings.CACHE_DIR?
-        self.generate_tpl_file(dstdir, 'mail-greylist', self)
-        self.generate_tpl_file(dstdir, 'mail-callout', self)
-        self.generate_tpl_file(dstdir, 'mail-rbl', self)
-        self.generate_tpl_file(dstdir, 'mail-rhsbl', self)
-        self.generate_tpl_file(dstdir, 'mail-whitelist', self)
-        self.generate_tpl_file(dstdir, 'web-passwords', self)
+        self.generate_tpl_file(dstdir, 'mail-disable', users=self.users)
+        self.generate_cdb_file(dstdir, 'mail-forward.cdb', 'emailForward', users=self.users)
+        self.generate_cdb_file(dstdir, 'mail-contentinspectionaction.cdb', 'mailContentInspectionAction', users=self.users)
+        self.generate_tpl_file(dstdir, 'debian-private', users=self.users)
+        self.generate_tpl_file(dstdir, 'authorized_keys', users=self.users, hosts=self.hosts)   # FIXME hard-coded path in template ... could use settings.CACHE_DIR?
+        self.generate_tpl_file(dstdir, 'mail-greylist', users=self.users)
+        self.generate_tpl_file(dstdir, 'mail-callout', users=self.users)
+        self.generate_tpl_file(dstdir, 'mail-rbl', users=self.users)
+        self.generate_tpl_file(dstdir, 'mail-rhsbl', users=self.users)
+        self.generate_tpl_file(dstdir, 'mail-whitelist', users=self.users)
+        self.generate_tpl_file(dstdir, 'web-passwords', users=self.users)
         # TODO GenVoipPassword(accounts, global_dir + "voip-passwords")
-        self.generate_tpl_file(dstdir, 'forward-alias', self)
+        self.generate_tpl_file(dstdir, 'forward-alias', users=self.users)
         with open(os.path.join(dstdir, 'all-accounts.json'), 'w') as f:
             data = list()
             for user in self.users:
@@ -169,7 +171,7 @@ class Command(BaseCommand):
 
         # accounts = filter(lambda a: not a in accounts_disabled, accounts)
         # equivalent filter: user.is_not_retired() and user.has_active_password()
-        self.generate_tpl_file(dstdir, 'markers', self)             # FIXME wrong count of users... check filter
+        self.generate_tpl_file(dstdir, 'markers', users=self.users)                             # FIXME wrong count of users... check filter
         # TODO GenSSHKnown(host_attrs, global_dir + "ssh_known_hosts")
         # TODO GenHosts(host_attrs, global_dir + "debianhosts")
         # TODO GenDNS(accounts, global_dir + "dns-zone")
@@ -184,13 +186,13 @@ class Command(BaseCommand):
         dstdir = os.path.join(self.dstdir, host.hostname)
         self.makedirs(dstdir)
 
-        self.generate_tpl_file(dstdir, 'passwd.tdb', host)          # FIXME if 'NOPASSWD' in ExtraList: x vs * in template
-        self.generate_tpl_file(dstdir, 'group.tdb', host)
+        self.generate_tpl_file(dstdir, 'passwd.tdb', users=host.users, host=host)
+        self.generate_tpl_file(dstdir, 'group.tdb', groups=host.groups, host=host)
         # TODO GenShadowSudo(accounts, OutDir + "sudo-passwd", ('UNTRUSTED' in ExtraList) or ('NOPASSWD' in ExtraList), current_host)
-        self.generate_tpl_file(dstdir, 'shadow.tdb', host) # if not 'NOPASSWD' in ExtraList:
-        self.generate_cdb_file(dstdir, 'user-forward.cdb', host, 'emailForward')
-        self.generate_cdb_file(dstdir, 'batv-tokens.cdb', host, 'bATVToken')
-        self.generate_cdb_file(dstdir, 'default-mail-options.cdb', host, 'mailDefaultOptions')
+        self.generate_tpl_file(dstdir, 'shadow.tdb', users=host.users) # if not 'NOPASSWD' in ExtraList:
+        self.generate_cdb_file(dstdir, 'user-forward.cdb', 'emailForward', users=host.users)
+        self.generate_cdb_file(dstdir, 'batv-tokens.cdb', 'bATVToken', users=host.users)
+        self.generate_cdb_file(dstdir, 'default-mail-options.cdb', 'mailDefaultOptions', users=host.users)
 
         self.link(self.dstdir, dstdir, 'disabled-accounts')
         self.link(self.dstdir, dstdir, 'mail-disable')
@@ -203,7 +205,7 @@ class Command(BaseCommand):
         self.link(self.dstdir, dstdir, 'mail-rbl')
         self.link(self.dstdir, dstdir, 'mail-rhsbl')
         self.link(self.dstdir, dstdir, 'mail-whitelist')
-        # TODO self.link(self.dstdir, dstdir, 'web-passwords', ('WEB-PASSWORDS' not in host.extraOptions))
+        self.link(self.dstdir, dstdir, 'web-passwords', ('WEB-PASSWORDS' in host.extraOptions))
         # TODO self.link(self.dstdir, dstdir, 'voip-passwords', ('VOIP-PASSWORDS' not in host.extraOptions))
         self.link(self.dstdir, dstdir, 'forward-alias')
         self.link(self.dstdir, dstdir, 'all-accounts.json')
@@ -248,17 +250,19 @@ class Command(BaseCommand):
                 pass
             posix.link(os.path.join(srcdir, filename), os.path.join(dstdir, filename))
 
-    def generate_tpl_file(self, dstdir, template, instance, guard=True):
+    def generate_tpl_file(self, dstdir, template, hosts=None, groups=None, users=None, host=None, guard=True):
+        #print 'hi: %s' % (os.path.join(dstdir, template))
         if guard:
             t = self.finder.get_template(template)
             with open(os.path.join(dstdir, template), 'w') as f:
-                f.write(t.render(instance=instance))
+                f.write(t.render(hosts=hosts, groups=groups, users=users, host=host))
 
-    def generate_cdb_file(self, dstdir, filename, instance, key, guard=True):
+    def generate_cdb_file(self, dstdir, filename, key, hosts=None, groups=None, users=None, host=None, guard=True):
+        #print 'hi: %s' % (os.path.join(dstdir, filename))
         if guard:
             fn = os.path.join(dstdir, filename).encode('ascii', 'ignore')
             maker = cdb.cdbmake(fn, fn + '.tmp')
-            for user in instance.users:
+            for user in users:
                 if user.is_not_retired():                           # FIXME really?
                     val = getattr(user, key)
                     if val:
