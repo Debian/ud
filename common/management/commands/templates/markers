@@ -1,5 +1,5 @@
 % for i, user in enumerate(users):
-% if user.is_not_retired() and user.has_active_password() and user.latitude and user.longitude:
+%     if user.is_not_retired() and user.has_active_password() and user.latitude and user.longitude:
 ${user.latitude} ${user.longitude}
-% endif
+%     endif
 % endfor

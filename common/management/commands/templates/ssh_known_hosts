@@ -1,0 +1,7 @@
+% for i, host in enumerate(hosts):
+%     if host.hostname and host.ipHostNumber:
+%         for sshRSAHostKey in host.sshRSAHostKey:
+${host.hostname},${host.hid},${','.join(host.ipHostNumber)} ${sshRSAHostKey}
+%         endfor
+%     endif
+% endfor

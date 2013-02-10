@@ -1,5 +1,5 @@
 % for i, user in enumerate(users):
-% if user.is_not_retired() and user.mailRBL:
+%     if user.is_not_retired() and user.mailRBL:
 ${user.uid}: ${' : '.join(user.mailRBL)}
-% endif
+%     endif
 % endfor

@@ -1,0 +1,7 @@
+% for i, host in enumerate(hosts):
+%     if host.hostname and host.hostname.endswith('debian.org'):
+%         for ipHostNumber in host.ipHostNumber:
+${ipHostNumber}
+%         endfor
+%     endif
+% endfor

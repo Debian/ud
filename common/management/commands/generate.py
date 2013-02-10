@@ -63,11 +63,12 @@ class Command(BaseCommand):
             raise CommandError('timed out waiting to lock the lockfile')
         try:
             if self.need_update() or self.options['force']:
-                self.marshall()
-                self.generate()
                 with open(os.path.join(self.dstdir, 'last_update.trace'), 'w') as f:
+                    self.marshall()
+                    self.generate()
                     f.write(yaml.dump({'last_ldap_mod': self.last_ldap_mod, 'last_generate': int(time.time())}))
         except Exception as err:
+            print err
             raise CommandError(err)
         finally:
             lock.release()
@@ -79,7 +80,10 @@ class Command(BaseCommand):
         try:
             with open(os.path.join(self.dstdir, 'last_update.trace'), 'r') as f:
                 y = yaml.load(f)
-                return self.last_ldap_mod > y.get('last_ldap_mod', 0) # TODO or last_unix_mod > y.get('last_unix_mod')
+                if y:
+                    return self.last_ldap_mod > y.get('last_ldap_mod', 0) # TODO or last_unix_mod > y.get('last_unix_mod')
+                else:
+                    return True
         except IOError as err:
             if err.errno != errno.ENOENT:
                 raise err
@@ -145,22 +149,24 @@ class Command(BaseCommand):
         self.makedirs(dstdir)
 
         self.generate_tpl_file(dstdir, 'disabled-accounts', users=self.users)
-
-        # accounts = filter(lambda x: not IsRetired(x), accounts)
-        # equivalent filter: user.is_not_retired()
         self.generate_tpl_file(dstdir, 'mail-disable', users=self.users)
         self.generate_cdb_file(dstdir, 'mail-forward.cdb', 'emailForward', users=self.users)
         self.generate_cdb_file(dstdir, 'mail-contentinspectionaction.cdb', 'mailContentInspectionAction', users=self.users)
         self.generate_tpl_file(dstdir, 'debian-private', users=self.users)
-        self.generate_tpl_file(dstdir, 'authorized_keys', users=self.users, hosts=self.hosts)   # FIXME hard-coded path in template ... could use settings.CACHE_DIR?
+        self.generate_tpl_file(dstdir, 'authorized_keys', users=self.users, hosts=self.hosts)
         self.generate_tpl_file(dstdir, 'mail-greylist', users=self.users)
         self.generate_tpl_file(dstdir, 'mail-callout', users=self.users)
         self.generate_tpl_file(dstdir, 'mail-rbl', users=self.users)
         self.generate_tpl_file(dstdir, 'mail-rhsbl', users=self.users)
         self.generate_tpl_file(dstdir, 'mail-whitelist', users=self.users)
         self.generate_tpl_file(dstdir, 'web-passwords', users=self.users)
-        # TODO GenVoipPassword(accounts, global_dir + "voip-passwords")
+        self.generate_tpl_file(dstdir, 'voip-passwords', users=self.users)
         self.generate_tpl_file(dstdir, 'forward-alias', users=self.users)
+        self.generate_tpl_file(dstdir, 'markers', users=self.users)                             # FIXME double check user filter
+        self.generate_tpl_file(dstdir, 'ssh_known_hosts', hosts=self.hosts)
+        self.generate_tpl_file(dstdir, 'debianhosts', hosts=self.hosts)
+        self.generate_tpl_file(dstdir, 'dns-zone', users=self.users)                            # FIXME double check user filter
+        self.generate_tpl_file(dstdir, 'dns-sshfp', hosts=self.hosts)
         with open(os.path.join(dstdir, 'all-accounts.json'), 'w') as f:
             data = list()
             for user in self.users:
@@ -168,15 +174,6 @@ class Command(BaseCommand):
                     active = user.has_active_password() and not user.has_expired_password()
                     data.append({'uid':user.uid, 'uidNumber':user.uidNumber, 'active':active})
             json.dump(data, f, sort_keys=True, indent=4, separators=(',',':'))
-
-        # accounts = filter(lambda a: not a in accounts_disabled, accounts)
-        # equivalent filter: user.is_not_retired() and user.has_active_password()
-        self.generate_tpl_file(dstdir, 'markers', users=self.users)                             # FIXME wrong count of users... check filter
-        # TODO GenSSHKnown(host_attrs, global_dir + "ssh_known_hosts")
-        # TODO GenHosts(host_attrs, global_dir + "debianhosts")
-        # TODO GenDNS(accounts, global_dir + "dns-zone")
-        # TODO GenZoneRecords(host_attrs, global_dir + "dns-sshfp")
-        # TODO GenSSHGitolite(accounts, global_dir + "ssh-gitolite")
         # TODO GenKeyrings(global_dir)
 
         for host in self.hosts:
@@ -189,42 +186,37 @@ class Command(BaseCommand):
         self.generate_tpl_file(dstdir, 'passwd.tdb', users=host.users, host=host)
         self.generate_tpl_file(dstdir, 'group.tdb', groups=host.groups, host=host)
         # TODO GenShadowSudo(accounts, OutDir + "sudo-passwd", ('UNTRUSTED' in ExtraList) or ('NOPASSWD' in ExtraList), current_host)
-        self.generate_tpl_file(dstdir, 'shadow.tdb', users=host.users) # if not 'NOPASSWD' in ExtraList:
+        self.generate_tpl_file(dstdir, 'shadow.tdb', users=host.users, guard=('NOPASSWD' not in host.exportOptions))
+        self.generate_tpl_file(dstdir, 'bsmtp', users=self.users, host=host, guard=('BSMTP' in host.exportOptions))
         self.generate_cdb_file(dstdir, 'user-forward.cdb', 'emailForward', users=host.users)
         self.generate_cdb_file(dstdir, 'batv-tokens.cdb', 'bATVToken', users=host.users)
         self.generate_cdb_file(dstdir, 'default-mail-options.cdb', 'mailDefaultOptions', users=host.users)
-
         self.link(self.dstdir, dstdir, 'disabled-accounts')
         self.link(self.dstdir, dstdir, 'mail-disable')
         self.link(self.dstdir, dstdir, 'mail-forward.cdb')
         self.link(self.dstdir, dstdir, 'mail-contentinspectionaction.cdb')
-        # TODO self.link(self.dstdir, dstdir, 'debian-private', ('PRIVATE' not in host.extraOptions))
-        self.link(self.dstdir, dstdir, 'authorized_keys', ('AUTHKEYS' in host.extraOptions))
+        self.link(self.dstdir, dstdir, 'debian-private', ('PRIVATE' not in host.exportOptions))
+        self.link(self.dstdir, dstdir, 'authorized_keys', ('AUTHKEYS' in host.exportOptions))
         self.link(self.dstdir, dstdir, 'mail-greylist')
         self.link(self.dstdir, dstdir, 'mail-callout')
         self.link(self.dstdir, dstdir, 'mail-rbl')
         self.link(self.dstdir, dstdir, 'mail-rhsbl')
         self.link(self.dstdir, dstdir, 'mail-whitelist')
-        self.link(self.dstdir, dstdir, 'web-passwords', ('WEB-PASSWORDS' in host.extraOptions))
-        # TODO self.link(self.dstdir, dstdir, 'voip-passwords', ('VOIP-PASSWORDS' not in host.extraOptions))
+        self.link(self.dstdir, dstdir, 'web-passwords', ('WEB-PASSWORDS' in host.exportOptions))
+        self.link(self.dstdir, dstdir, 'voip-passwords', ('VOIP-PASSWORDS' in host.exportOptions))
         self.link(self.dstdir, dstdir, 'forward-alias')
+        self.link(self.dstdir, dstdir, 'markers', ('NOMARKERS' not in host.exportOptions))
+        self.link(self.dstdir, dstdir, 'ssh_known_hosts')                                       # FIXME handle purpose
+        self.link(self.dstdir, dstdir, 'debianhosts')
+        self.link(self.dstdir, dstdir, 'dns-zone', ('DNS' in host.exportOptions))
+        self.link(self.dstdir, dstdir, 'dns-sshfp', ('DNS' in host.exportOptions))
         self.link(self.dstdir, dstdir, 'all-accounts.json')
-
-        self.link(self.dstdir, dstdir, 'markers', ('NOMARKERS' not in host.extraOptions))
-        # TODO self.link(self.dstdir, dstdir, 'ssh_known_hosts')
-        # TODO self.link(self.dstdir, dstdir, 'debianhosts')
-        # TODO self.link(self.dstdir, dstdir, 'dns-zone', ('DNS' in host.extraOptions))
-        # TODO self.link(self.dstdir, dstdir, 'dns-sshfp', ('DNS' in host.extraOptions))
-        # TODO self.generate_tpl_file(dstdir, 'bsmtp', host, ('BSMTP' in host.extraOptions))
-        # TODO self.link(self.dstdir, dstdir, 'ssh-gitolite', ('GITOLITE' in host.extraOptions))
         # TODO keyring stuff
-
-        # TODO self.link(self.dstdir, dstdir, 'last_update.trace')
 
         tf = tarfile.open(name=os.path.join(self.dstdir, host.hostname, 'ssh-keys.tar.gz'), mode='w:gz')
         for user in host.users:
             to = tarfile.TarInfo(name=user.uid)
-            contents = '\n'.join(user.sshRSAAuthKey) + '\n'         # FIXME handle allowed_hosts
+            contents = '\n'.join(user.sshRSAAuthKey) + '\n'                                     # FIXME handle allowed_hosts
             to.uid = 0
             to.gid = 65534
             to.uname = user.uid # XXX the magic happens here
@@ -234,6 +226,8 @@ class Command(BaseCommand):
             to.size = len(contents)
             tf.addfile(to, StringIO(contents))
         tf.close()
+
+        self.link(self.dstdir, dstdir, 'last_update.trace')
 
     def makedirs(self, path):
         try:
@@ -251,14 +245,12 @@ class Command(BaseCommand):
             posix.link(os.path.join(srcdir, filename), os.path.join(dstdir, filename))
 
     def generate_tpl_file(self, dstdir, template, hosts=None, groups=None, users=None, host=None, guard=True):
-        #print 'hi: %s' % (os.path.join(dstdir, template))
         if guard:
             t = self.finder.get_template(template)
             with open(os.path.join(dstdir, template), 'w') as f:
                 f.write(t.render(hosts=hosts, groups=groups, users=users, host=host))
 
     def generate_cdb_file(self, dstdir, filename, key, hosts=None, groups=None, users=None, host=None, guard=True):
-        #print 'hi: %s' % (os.path.join(dstdir, filename))
         if guard:
             fn = os.path.join(dstdir, filename).encode('ascii', 'ignore')
             maker = cdb.cdbmake(fn, fn + '.tmp')

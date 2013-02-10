@@ -241,10 +241,14 @@ class Host(ldapdb.models.Model):
     base_dn = 'ou=hosts,dc=debian,dc=org'
     object_classes = ['debianServer']
     allowedGroups               = ListField(    db_column='allowedGroups',                  validators=[])                          # TODO validator
-    extraOptions                = ListField(    db_column='extraOptions',                   validators=[])                          # TODO validator
+    architecture                = CharField(    db_column='architecture',                   validators=[])                          # TODO validator
+    dnsTTL                      = CharField(    db_column='dnsTTL',                         validators=[])                          # TODO validator
+    exportOptions               = ListField(    db_column='exportOptions',                  validators=[])                          # TODO validator
     hid                         = CharField(    db_column='host',                           validators=[], primary_key=True)        # TODO validator
     hostname                    = CharField(    db_column='hostname',                       validators=[])                          # TODO validator
     ipHostNumber                = ListField(    db_column='ipHostNumber',                   validators=[])                          # TODO validator
+    machine                     = CharField(    db_column='machine',                        validators=[])                          # TODO validator
+    mXRecord                    = ListField(    db_column='mXRecord',                       validators=[])                          # TODO validator
     sshRSAHostKey               = ListField(    db_column='sshRSAHostKey',                  validators=[], blank=True)              # TODO validator
 
     def __str__(self):
@@ -318,11 +322,11 @@ class User(ldapdb.models.Model):
     supplementaryGid            = ListField(    db_column='supplementaryGid',               validators=[validate_supplementaryGid])
     # TODO telephoneNumber
     # TODO VoIP
-    uid                         = CharField(    db_column='uid',                            validators=[], primary_key=True)
-    uidNumber                   = IntegerField( db_column='uidNumber',                      validators=[])
-    userPassword                = CharField(    db_column='userPassword',                   validators=[])
-    voipPassword                = CharField(    db_column='voipPassword',                   blank=True)
-    webPassword                 = CharField(    db_column='webPassword',                    blank=True)
+    uid                         = CharField(    db_column='uid',                            validators=[], primary_key=True)        # TODO validator
+    uidNumber                   = IntegerField( db_column='uidNumber',                      validators=[])                          # TODO validator
+    userPassword                = CharField(    db_column='userPassword',                   validators=[])                          # TODO validator
+    voipPassword                = CharField(    db_column='voipPassword',                   validators=[], blank=True)              # TODO validator
+    webPassword                 = CharField(    db_column='webPassword',                    validators=[], blank=True)              # TODO validator
 
     def __str__(self):
         return self.uid
@@ -554,6 +558,14 @@ class User(ldapdb.models.Model):
         else:
             return p[7:]
     password = property(_get_password)
+
+    def _get_emailAddress(self):
+        tokens = list()
+        if self.cn: tokens.append(self.cn)
+        if self.sn: tokens.append(self.sn)
+        tokens.append('<%s@debian.org>' % (self.uid))
+        return ' '.join(tokens)
+    emailAddress = property(_get_emailAddress)
 
     def _get_expire(self):
         if not self.has_active_password():

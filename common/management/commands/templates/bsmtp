@@ -1,0 +1,11 @@
+% for i, user in enumerate(users):
+%     if user.is_not_retired() and user.has_active_password():
+%         if user.dnsZoneEntry:
+%             for dnsZoneEntry in user.dnsZoneEntry:
+%                 if 'IN MX' in dnsZoneEntry and dnsZoneEntry.endswith('master.debian.org.'):
+${dnsZoneEntry.split(' ')[0]}.debian.net: user=${user.uid} group=${user.gid} file=/home/${user.uid}/bsmtp/${dnsZoneEntry.split(' ')[0]}.debian.net
+%                 endif
+%             endfor
+%         endif
+%     endif
+% endfor

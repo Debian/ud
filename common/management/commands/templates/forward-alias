@@ -1,5 +1,5 @@
 % for i, user in enumerate(users):
-% if user.is_not_retired() and user.emailForward:
+%     if user.is_not_retired() and user.emailForward:
 ${user.uid}: ${user.emailForward}
-% endif
+%     endif
 % endfor
