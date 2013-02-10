@@ -15,33 +15,27 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from common.models import Host, Group, User
 
 import optparse
 
 class Command(BaseCommand):
-    help = 'validate - blah blah' # TODO
-    option_list = BaseCommand.option_list + (
-        optparse.make_option('--quiet',
-            action='store_true',
-            default=False,
-            help='enable quiet output'
-        ),
-        optparse.make_option('--verbose',
-            action='store_true',
-            default=False,
-            help='enable verbose output'
-        ),
-    )
+    args = '[uid uid ...]'
+    help = 'Validates all or specified users against validation rules.'
 
     def handle(self, *args, **options):
         self.options = options
         self.error = False
         if args:
             for uid in args:
-                user = User.objects.get(uid__exact=uid)
-                self.validate_user(user)
+                try:
+                    user = User.objects.get(uid__exact=uid)
+                    self.validate_user(user)
+                except ObjectDoesNotExist:
+                    self.error = True
+                    if self.options['verbosity'] > '0':
+                        self.stdout.write('nak:%s:uid does not exist\n' % (uid))
         else:
             users = User.objects.all()
             for user in users:
@@ -52,15 +46,16 @@ class Command(BaseCommand):
     def validate_user(self, user):
         try:
             user.validate()
-            if self.options['verbose']:
-                print 'ack:%s' % (user.uid)
+            if self.options['verbosity'] == '2':
+                self.stdout.write('ack:%s\n' % (user.uid))
         except ValidationError as err:
             self.error = True
-            if self.options['quiet']:
-                print 'nak:%s' % (user.uid)
+            if self.options['verbosity'] == '0':
+                self.stdout.write('nak:%s\n' % (user.uid))
             else:
                 for message in err.messages:
-                    print 'nak:%s:%s' % (user.uid, message)
-
+                    self.stdout.write('nak:%s:%s\n' % (user.uid, message))
+        except Exception as err:
+            raise CommandError(err)
 
 # vim: set ts=4 sw=4 et ai si sta:

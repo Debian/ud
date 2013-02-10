@@ -29,7 +29,7 @@ import sys
 from _mailgate import MailGate
 
 class Command(BaseCommand):
-    help = 'mailgate - mail gateway command processor'
+    help = 'Processes commands received in GPG-signed emails.'
     option_list = BaseCommand.option_list + (
         optparse.make_option('--console',
             action='store_true',
