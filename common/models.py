@@ -276,6 +276,8 @@ class User(ldapdb.models.Model):
     base_dn = 'ou=users,dc=debian,dc=org'
     object_classes = ['debianAccount']
     accountStatus               = CharField(    db_column='accountStatus',                  validators=[validate_accountStatus], blank=True)
+    activityFrom                = CharField(    db_column='activity-from',                  validators=[], blank=True)              # TODO validator
+    activityPGP                 = CharField(    db_column='activity-pgp',                   validators=[], blank=True)              # TODO validator
     allowedHost                 = ListField(    db_column='allowedHost',                    validators=[validate_allowedHost])
     bATVToken                   = CharField(    db_column='bATVToken',                      validators=[validate_bATVToken], blank=True)
     birthDate                   = CharField(    db_column='birthDate',                      validators=[validate_birthDate], blank=True)
@@ -336,7 +338,6 @@ class User(ldapdb.models.Model):
 
     def update(self, key, val):
         (field, model, direct, m2m) = self._meta.get_field_by_name(key)
-        print type(field)
         if direct and not m2m:
             setattr(self, key, field.clean(val, self))
 

@@ -68,7 +68,6 @@ class Command(BaseCommand):
                     self.generate()
                     f.write(yaml.dump({'last_ldap_mod': self.last_ldap_mod, 'last_generate': int(time.time())}))
         except Exception as err:
-            print err
             raise CommandError(err)
         finally:
             lock.release()

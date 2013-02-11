@@ -15,6 +15,7 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db.models import Q
 from common.models import User
 
 import optparse
@@ -25,17 +26,11 @@ import pyme.constants.sigsum
 import pyme.core
 import smtplib
 import sys
-
-from _mailgate import MailGate
+import time
 
 class Command(BaseCommand):
-    help = 'Processes commands received in GPG-signed emails.'
+    help = 'Watches for email activity from Debian Developers.'
     option_list = BaseCommand.option_list + (
-        optparse.make_option('--console',
-            action='store_true',
-            default=False,
-            help='send reply to stdout'
-        ),
         optparse.make_option('--dryrun',
             action='store_true',
             default=False,
@@ -46,12 +41,29 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.options = options
         try:
-            mailgate = MailGate()
             message = email.message_from_file(sys.stdin)
-            (fingerprint, commands) = self.verify_message(message)
-            user = self.verify_fingerprint(fingerprint)
-            result = mailgate.process_commands(user, commands, self.options['dryrun'])
-            self.generate_reply(message, result)
+            user = None
+            key = ''
+            val = '[%s]' % ( time.strftime("%a, %d %b %Y %H:%M:%S",time.gmtime(time.time())) )
+            try: # to determine user from signature
+                (fingerprint, ignore) = self.verify_message(message)
+                user = self.verify_fingerprint(fingerprint)
+                key = 'activityPGP'
+                val += ' "%s" ' % (fingerprint)
+            except:
+                pass
+            try: # to determine user from headers
+                user = self.verify_address(message)
+                key = 'activityFrom'
+                val += ' "%s" ' % (message.get('From'))
+            except:
+                pass
+            if user:
+                val += ' "%s" "%s"' % (message.get('X-Mailing-List'), message.get('Message-ID'))
+                if self.options['dryrun']:
+                    sys.stdout.write('%s: %s\n' % (key, val))
+                else:
+                    user.update(key, val)
         except Exception as err:
             raise CommandError(err)
 
@@ -101,23 +113,20 @@ class Command(BaseCommand):
             raise Exception('too many user objects found')
         return result[0]
 
-    def generate_reply(self, message, result):
-        from_mailaddr = 'changes@db.debian.org'
-        if message.get('Reply-To'):
-            to = message.get('Reply-To')
-            (to_realname,to_mailaddr) = email.utils.parseaddr(to)
-        elif message.get('From'):
-            to = message.get('From')
-            (to_realname,to_mailaddr) = email.utils.parseaddr(to)
-        msg = email.mime.text.MIMEText('\n'.join(result))
-        msg['From'] = from_mailaddr
-        msg['To'] = to
-        msg['Subject'] = 'ud-mailgate processing results'
-        if self.options['console']:
-            self.stdout.write(msg.as_string() + '\n')
-        else:
-            s = smtplib.SMTP('localhost')
-            s.sendmail(from_mailaddr, to_mailaddr, msg.as_string())
-            s.quit()
+    def verify_address(self, message):
+        emailForwards = set()
+        uids = set()
+        if message.get('From'):
+            (x,y) = email.utils.parseaddr(message.get('From'))
+            if y:
+                emailForwards.add(y)
+                if y.endswith('@debian.org'):
+                    uids.add(y.split('@')[0])
+        result = User.objects.filter(Q(uid__in=uids)|Q(emailForward__in=emailForwards))
+        if len(result) == 0:
+            raise Exception('too few user objects found')
+        if len(result) >= 2:
+            raise Exception('too many user objects found')
+        return result[0]
 
 # vim: set ts=4 sw=4 et ai si sta:

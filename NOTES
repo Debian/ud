@@ -21,6 +21,7 @@
     - complete validators
   - User model
     - complete validators
+  - echelon command
   - generate command
   - mailgate command
     - DoDel(Line,Attrs)

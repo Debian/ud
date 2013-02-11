@@ -29,6 +29,8 @@ msg['Subject'] = args.subject
 msg['From'] = 'Luca Filipozzi <lfilipoz@debian.org>'
 msg['Reply-To'] = 'Luca Filipozzi <lfilipoz@emyr.net>'
 msg['To'] = args.recipient
+msg['X-Mailing-List'] = '<debian-wnpp@lists.debian.org> archive/latest/147633'
+msg['Message-ID'] = '<20130114072317.GA9337@emyr.net>'
 
 print msg.as_string()
 
