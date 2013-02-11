@@ -1,3 +1,4 @@
+## vim: set ft=mako:
 <% from django.conf import settings %>\
 % for i, host in enumerate(hosts):
 %     if host.hostname and host.ipHostNumber:

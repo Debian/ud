@@ -1,3 +1,4 @@
+## vim: set ft=mako:
 % for i, user in enumerate(users):
 %     if user.has_locked_password():
 ${user.uid}:Account is locked
