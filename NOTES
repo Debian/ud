@@ -2,39 +2,63 @@
   - ca-certificates
   - debian-keyring
   - django
-  - django-ldapdb (ITP needed)
+  - django-ldapdb [1]
   - openssh-blacklist
   - openssh-blacklist-extra
   - python-cdb
   - python-dateutil
+  - python-daemon
   - python-django
   - python-ipy
   - python-lockfile
-  - python-lxml (bug 626395)
+  - python-lxml [2]
   - python-mako
-  - python-nameparser (ITP needed)
+  - python-nameparser [3]
   - python-pycountry
   - python-pyme
   - python-pyparsing
-- action items
-  - Host model
-    - complete validators
-  - Group model
-    - complete validators
-  - User model
-    - complete validators
-  - ud-echelon command
-  - ud-fingerd command
-    - drop root
-  - ud-generate command
-  - ud-mailgate command
-    - DoDel(Line,Attrs)
-    - DoPosition(Line,Attrs)
-    - DoRBL(Line,Attrs)
-    - DoConfirmSudopassword(Line)
-    - simplify mailgate.py parser
-    - move argument parsing into models.py to
-      leverate validators for multiple purposes
-  - ud-replicate command
-    - not started
-  - ud-validate command
+- models
+  - Host
+  - Group
+  - User
+- commands that exist in userdir-ldap
+  - ud-arbimport             : nak : ----
+  - ud-config                : nak : ----
+  - ud-echelon               : ack :  90%
+  - ud-emailmatcher          : nak : ----
+  - ud-fingerserv            : ack :  90% (ud-fingerd)
+  - ud-forwardlist           : nak : ----
+  - ud-generate              : ack :   0%
+  - ud-gpgimport             : nak : ---- (maybe?)
+  - ud-gpgsigfetch           : nak : ----
+  - ud-groupadd              : ack :   0%
+  - ud-homecheck             : nak : ----
+  - ud-host (interactive)    : nak : ---- (maybe?)
+  - ud-info (interactive)    : nak : ---- (maybe?)
+  - ud-krb-reset             : nak : ----
+  - ud-ldapshow              : nak : ----
+  - ud-lock                  : ack :   0%
+  - ud-mailgate              : ack :  90%
+  - ud-passchk               : nak : ----
+  - ud-roleadd               : ack :   0%
+  - ud-replicate             : ack :   0%
+  - ud-sshlist               : nak : ----
+  - ud-sync-accounts-to-afs  : nak : ----
+  - ud-useradd               : ack :   0%
+  - ud-userimport            : nak : ----
+  - ud-xearth                : nak : ----
+  - ud-zoneupdate            : ack :   0%
+- commands that we should build instead
+  - ud-echelon    : 90%
+  - ud-fingerd    : 90%
+  - ud-generate   : 90%
+  - ud-replicate  :  0%
+  - ud-validate   : 90%
+  - ud-zoneupdate :  0%
+  - ud-addhost  / ud-modhost  / ud-delhost  : 0%
+  - ud-addgroup / ud-modgroup / ud-delgroup : 0%
+  - ud-adduser  / ud-moduser  / ud-deluser  : 0%
+
+[1] http://opensource.bolloretelecom.eu/projects/django-ldapdb
+[2] http://bugs.debian.org/626395
+[3] http://pypi.python.org/pypi/nameparser

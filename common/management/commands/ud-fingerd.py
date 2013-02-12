@@ -15,13 +15,10 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
-from django.conf import settings
 from common.models import User
 
 import daemon
 import optparse
-import os
-import pyme.core
 import SocketServer
 
 class FingerServer(SocketServer.TCPServer):
@@ -35,15 +32,9 @@ class FingerHandler(SocketServer.StreamRequestHandler):
                 uid = uid[:-4]
                 user = User.objects.get(uid=uid)
                 if user:
-                    ctx = pyme.core.Context()
-                    ctx.set_armor(True)
-                    ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.CACHE_DIR, 'gnupg'))
-                    key = pyme.core.Data()
-                    ctx.op_export(user.keyFingerPrint.encode('ascii'), 0, key)
-                    key.seek(0,0)
-                    asc = key.read()
+                    asc = user.key
                     if asc:
-                        self.wfile.write(user.dn)
+                        self.wfile.write(user.dn + '\n')
                         self.wfile.write(asc)
                     else:
                         raise Exception('public key for "%s" not found at db.debian.org\n' % (uid))

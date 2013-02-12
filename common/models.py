@@ -14,6 +14,7 @@
 #
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
+from django.conf import settings
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 
@@ -30,9 +31,12 @@ import base64
 import datetime
 import json
 import hashlib
+import os
+import pyme.core
+import re
 import struct
 import time
-import re
+
 from IPy import IP
 from M2Crypto import RSA, m2
 
@@ -137,7 +141,17 @@ def validate_ircNick(val):
     return # TODO
 
 def validate_keyFingerPrint(val):
-    return # TODO
+    try:
+        ctx = pyme.core.Context()
+        ctx.set_armor(True)
+        ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.CACHE_DIR, 'gnupg'))
+        key = pyme.core.Data()
+        ctx.op_export(val.encode('ascii'), 0, key)
+        key.seek(0,0)
+        if not key.read():
+            raise ValidationError('matching key not found in keyring')
+    except:
+        raise ValidationError('value is not valid for keyFingerPrint')
 
 def validate_l(val):
     return # TODO
@@ -577,6 +591,16 @@ class User(ldapdb.models.Model):
             return self.shadowExpire
     expire = property(_get_expire)
     
+    def _get_key(self):
+        ctx = pyme.core.Context()
+        ctx.set_armor(True)
+        ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.CACHE_DIR, 'gnupg'))
+        key = pyme.core.Data()
+        ctx.op_export(self.keyFingerPrint.encode('ascii'), 0, key)
+        key.seek(0,0)
+        return key.read()
+    key = property(_get_key)
+
     def validate(self):
         errors = list()
         for fieldname in self._meta.get_all_field_names():
