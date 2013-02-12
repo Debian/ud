@@ -49,7 +49,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.options = options
-        self.dstdir = settings.CACHE_DIR
+        self.dstdir = os.path.join(settings.CACHE_DIR, 'hosts')
         self.tpldir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
         self.finder = TemplateLookup(directories=[self.tpldir], encoding_errors='ignore', output_encoding='utf-8')
         lock = lockfile.FileLock(os.path.join(self.dstdir, 'ud-generate'))

@@ -15,10 +15,12 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
+from django.conf import settings
 from common.models import User
 
 import daemon
 import optparse
+import os
 import pyme.core
 import SocketServer
 
@@ -35,12 +37,12 @@ class FingerHandler(SocketServer.StreamRequestHandler):
                 if user:
                     ctx = pyme.core.Context()
                     ctx.set_armor(True)
-                    ctx.set_engine_info(0, '/usr/bin/gpg', '/tmp/ud/.gnupg')
+                    ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.CACHE_DIR, 'gnupg'))
                     key = pyme.core.Data()
                     ctx.op_export(user.keyFingerPrint.encode('ascii'), 0, key)
                     key.seek(0,0)
                     asc = key.read()
-                    if key:
+                    if asc:
                         self.wfile.write(user.dn)
                         self.wfile.write(asc)
                     else:
@@ -52,6 +54,8 @@ class FingerHandler(SocketServer.StreamRequestHandler):
                 if user:
                     self.wfile.write('%s\n' % (user.dn))
                     self.wfile.write('First name: %s\n' % (user.cn))
+                    if user.mn:
+                        self.wfile.write('Middle name: %s\n' % (user.mn))
                     self.wfile.write('Last name: %s\n' % (user.sn))
                     self.wfile.write('Email: %s\n' % (user.emailAddress))
                     if user.labeledURI:
