@@ -290,13 +290,13 @@ class User(ldapdb.models.Model):
     gidNumber                   = IntegerField( db_column='gidNumber',                      validators=[validate_gidNumber])
     # TODO gender
     # TODO homeDirectory - not stored in LDAP; required by posixAccount use a property?
-    # TODO icqUin
+    icqUin                      = CharField(    db_column='icqUin',                         validators=[], blank=True)              # TODO validator
     ircNick                     = CharField(    db_column='ircNick',                        validators=[validate_ircNick], blank=True)
-    # TODO jabberJID
+    jabberJID                   = CharField(    db_column='jabberJID',                      validators=[], blank=True)              # TODO validator
     # TODO jpegPhoto
     keyFingerPrint              = CharField(    db_column='keyFingerPrint',                 validators=[validate_keyFingerPrint], blank=True)
     l                           = CharField(    db_column='l',                              validators=[validate_l], blank=True)
-    # TODO labeledURI
+    labeledURI                  = CharField(    db_column='labeledURI',                     validators=[], blank=True)              # TODO validator
     latitude                    = CharField(    db_column='latitude',                       validators=[], blank=True)              # TODO validator
     loginShell                  = CharField(    db_column='loginShell',                     validators=[validate_loginShell])
     longitude                   = CharField(    db_column='longitude',                      validators=[], blank=True)              # TODO validator
@@ -309,6 +309,7 @@ class User(ldapdb.models.Model):
     mailRBL                     = ListField(    db_column='mailRBL',                        validators=[], blank=True)              # TODO validator
     mailRHSBL                   = ListField(    db_column='mailRHSBL',                      validators=[], blank=True)              # TODO validator
     mailWhitelist               = ListField(    db_column='mailWhitelist',                  validators=[], blank=True)              # TODO validator
+    mn                          = CharField(    db_column='mn',                             validators=[], blank=True)              # TODO validator
     # TODO onVacation
     # TODO postalAddress
     # TODO postalCode
@@ -563,6 +564,7 @@ class User(ldapdb.models.Model):
     def _get_emailAddress(self):
         tokens = list()
         if self.cn: tokens.append(self.cn)
+        if self.mn: tokens.append(self.mn)
         if self.sn: tokens.append(self.sn)
         tokens.append('<%s@debian.org>' % (self.uid))
         return ' '.join(tokens)

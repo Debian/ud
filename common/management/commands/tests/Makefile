@@ -1,14 +1,14 @@
 .PHONY: echelon-encrypted
 echelon-encrypted: encrypted.eml
-	cat $< | ../../../../manage echelon --dryrun
+	cat $< | ../../../../manage ud-echelon --dryrun
 
 .PHONY: echelon-plaintext
 echelon-plaintext: plaintext.eml
-	cat $< | ../../../../manage echelon --dryrun
+	cat $< | ../../../../manage ud-echelon --dryrun
 
 .PHONY: mailgate
 mailgate: encrypted.eml
-	cat $< | ../../../../manage mailgate --dryrun --console
+	cat $< | ../../../../manage ud-mailgate --dryrun --console
 
 .PHONY: clean
 clean:

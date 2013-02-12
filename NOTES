@@ -1,5 +1,7 @@
 - runtime dependencies
   - ca-certificates
+  - debian-keyring
+  - django
   - django-ldapdb (ITP needed)
   - openssh-blacklist
   - openssh-blacklist-extra
@@ -21,9 +23,11 @@
     - complete validators
   - User model
     - complete validators
-  - echelon command
-  - generate command
-  - mailgate command
+  - ud-echelon command
+  - ud-fingerd command
+    - drop root
+  - ud-generate command
+  - ud-mailgate command
     - DoDel(Line,Attrs)
     - DoPosition(Line,Attrs)
     - DoRBL(Line,Attrs)
@@ -31,5 +35,6 @@
     - simplify mailgate.py parser
     - move argument parsing into models.py to
       leverate validators for multiple purposes
-  - replicate command
-  - validate command
+  - ud-replicate command
+    - not started
+  - ud-validate command
