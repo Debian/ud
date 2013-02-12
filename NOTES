@@ -1,6 +1,6 @@
 - runtime dependencies
   - ca-certificates
-  - django-ldapdb (customized)
+  - django-ldapdb (ITP needed)
   - openssh-blacklist
   - openssh-blacklist-extra
   - python-cdb
@@ -8,12 +8,12 @@
   - python-django
   - python-ipy
   - python-lockfile
-  - python-lxml
+  - python-lxml (bug 626395)
   - python-mako
+  - python-nameparser (ITP needed)
   - python-pycountry
   - python-pyme
   - python-pyparsing
-  - python-m2crypto
 - action items
   - Host model
     - complete validators

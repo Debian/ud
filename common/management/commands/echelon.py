@@ -15,13 +15,13 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db.models import Q
 from common.models import User
 
 import optparse
 import email
 import email.mime.text
 import email.utils
+import nameparser
 import pyme.constants.sigsum
 import pyme.core
 import smtplib
@@ -44,20 +44,22 @@ class Command(BaseCommand):
             message = email.message_from_file(sys.stdin)
             user = None
             key = ''
-            val = '[%s]' % ( time.strftime("%a, %d %b %Y %H:%M:%S",time.gmtime(time.time())) )
-            try: # to determine user from signature
-                (fingerprint, ignore) = self.verify_message(message)
-                user = self.verify_fingerprint(fingerprint)
-                key = 'activityPGP'
-                val += ' "%s" ' % (fingerprint)
-            except:
-                pass
-            try: # to determine user from headers
-                user = self.verify_address(message)
-                key = 'activityFrom'
-                val += ' "%s" ' % (message.get('From'))
-            except:
-                pass
+            val = '[%s]' % ( time.strftime("%a, %d %b %Y %H:%M:%S",time.gmtime(time.time())) ) # TODO use ISO8601 format?
+            if not key: # determine user from signature
+                try:
+                    (fingerprint, ignore) = self.verify_message(message)
+                    user = self.verify_fingerprint(fingerprint)
+                    key = 'activityPGP'
+                    val += ' "%s" ' % (fingerprint)
+                except:
+                    pass
+            if not key: # determine user from headers
+                try:
+                    user = self.verify_address(message)
+                    key = 'activityFrom'
+                    val += ' "%s" ' % (message.get('From'))
+                except:
+                    pass
             if user:
                 val += ' "%s" "%s"' % (message.get('X-Mailing-List'), message.get('Message-ID'))
                 if self.options['dryrun']:
@@ -106,27 +108,37 @@ class Command(BaseCommand):
         return (result.signatures[0].fpr, commands)
 
     def verify_fingerprint(self, fingerprint):
-        result = User.objects.filter(keyFingerPrint=fingerprint)
-        if len(result) == 0:
-            raise Exception('too few user objects found')
-        if len(result) >= 2:
-            raise Exception('too many user objects found')
-        return result[0]
+        try:
+            result = User.objects.filter(keyFingerPrint=fingerprint)
+            if len(result) == 1: return result[0]
+        except:
+            pass
+        raise Exception('could not find user')
 
     def verify_address(self, message):
-        emailForwards = set()
-        uids = set()
-        if message.get('From'):
-            (x,y) = email.utils.parseaddr(message.get('From'))
-            if y:
-                emailForwards.add(y)
-                if y.endswith('@debian.org'):
-                    uids.add(y.split('@')[0])
-        result = User.objects.filter(Q(uid__in=uids)|Q(emailForward__in=emailForwards))
-        if len(result) == 0:
-            raise Exception('too few user objects found')
-        if len(result) >= 2:
-            raise Exception('too many user objects found')
-        return result[0]
+        try:
+            humanName = None
+            emailForward = None
+            uid = None
+            if 'From' in message:
+                (x,y) = email.utils.parseaddr(message.get('From'))
+                if x:
+                    humanName = nameparser.HumanName(x)
+                if y:
+                    emailForward = y
+                    if y.endswith('@debian.org'):
+                        uid = y.split('@')[0]
+            if emailForward:
+                result = User.objects.filter(emailForward=emailForward)
+                if len(result) == 1: return result[0]
+            if humanName:
+                result = User.objects.filter(cn=humanName.first,sn=humanName.last)
+                if len(result) == 1: return result[0]
+            if uid:
+                result = User.objects.filter(uid=uid)
+                if len(result) == 1: return result[0]
+        except:
+            pass
+        raise Exception('could not find user')
 
 # vim: set ts=4 sw=4 et ai si sta:
