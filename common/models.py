@@ -352,8 +352,10 @@ class User(ldapdb.models.Model):
         return self.uid
 
     def update(self, key, val):
-        (field, model, direct, m2m) = self._meta.get_field_by_name(key)
-        if direct and not m2m:
+        field = self._meta.get_field(key)
+        if type(field) == ListField:
+            raise ValidationError('no good')
+        else:
             setattr(self, key, field.clean(val, self))
 
     def __delete_dnsZoneEntry(self, query, delete_all=False):
@@ -604,7 +606,7 @@ class User(ldapdb.models.Model):
     def validate(self):
         errors = list()
         for fieldname in self._meta.get_all_field_names():
-            (field, model, direct, m2m) = self._meta.get_field_by_name(fieldname)
+            field = self._meta.get_field(fieldname)
             values = getattr(self, fieldname)
             if type(values) is not list:
                 values = [values]
