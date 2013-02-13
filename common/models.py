@@ -25,7 +25,7 @@ ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, '/etc/ssl/certs/ca-certificates.crt')
 
 import pyparsing
 from pyparsing import CaselessKeyword, Keyword, LineEnd, LineStart, Literal, Optional, QuotedString, Regex, Suppress, Word
-from pyparsing import alphanums, delimitedList
+from pyparsing import alphas, alphanums, delimitedList, hexnums, nums
 
 import base64
 import datetime
@@ -352,11 +352,17 @@ class User(ldapdb.models.Model):
         return self.uid
 
     def update(self, key, val):
-        field = self._meta.get_field(key)
-        if type(field) == ListField:
-            raise ValidationError('no good')
-        else:
-            setattr(self, key, field.clean(val, self))
+        try:
+            field = self._meta.get_field(key)
+            if not field: raise
+            if type(field) == ListField:
+                method = 'update_%s' % (key)
+                if not hasattr(self, method): raise
+                getattr(self, method)(val)
+            else:
+                setattr(self, key, field.clean(val, self))
+        except:
+            ValidationError('unknown field: "%s"' % (key))
 
     def __delete_dnsZoneEntry(self, query, delete_all=False):
         users = User.objects.filter(dnsZoneEntry__startswith=query)
@@ -404,6 +410,18 @@ class User(ldapdb.models.Model):
         validate_pqdn(name)
         query = '%s' % (name.lower())
         self.__delete_dnsZoneEntry(query, True)
+
+    def update_dnsZoneEntry(self, line):
+        parser = Regex(r'[-\w.]+\w') + Keyword('IN') + (
+            (Keyword('A')     + Word(nums+'.')                          ) | 
+            (Keyword('AAAA')  + Word(hexnums+':')                       ) |
+            (Keyword('CNAME') + Regex(r'[-\w.]+\.')                     ) |
+            (Keyword('MX')    + Regex(r'\d{1,3}') + Regex(r'[-\w.]+\.') ) |
+            (Keyword('TXT')   + Regex(r'[-\d. a-z\t<>@]+')              )
+        )
+        tokens = parser.parseString(line)
+        method = 'update_dnsZoneEntry_%s_%s' % (tokens[1], tokens[2])
+        getattr(self, method)(tokens[0], *tokens[3:])
 
     def delete_dnsZoneEntry_IN_A(self, name):
         validate_pqdn(name)

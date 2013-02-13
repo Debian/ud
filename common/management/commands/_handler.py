@@ -26,6 +26,7 @@ class Handler(cmd.Cmd):
         self.keys = keys   # TODO add to model
         self.dirty = set() # TODO add to model (mixin)
         self.prompt = '%s:%s # ' % (entry._meta.verbose_name, entry.pk)
+        self.pad = max([len(x) for x in self.keys])
 
     def do_EOF(self, line):
         """exits from the command loop on CTRL^D"""
@@ -39,7 +40,7 @@ class Handler(cmd.Cmd):
         return True
 
     def do_discard(self, line):
-        """discard local changes"""
+        """discard local modifications"""
         self.entry = self.entry.__class__._default_manager.get(pk=self.entry.pk)
         self.dirty.clear()
 
@@ -61,14 +62,19 @@ class Handler(cmd.Cmd):
         self.dirty.clear()
 
     def do_show(self, line):
-        """show current attributes"""
+        """show current attributes (flag local modifications)"""
         for key in self.keys:
             delim = '*' if key in self.dirty else ':'
             field = self.entry._meta.get_field(key)
-            if type(field) == ListField:
-                print '%s %s xx' % (key.rjust(8), delim) # TODO
+            values = getattr(self.entry, key)
+            if type(values) is not list:
+                values = [values]
+            if values:
+                print '%s %s %s' % (key.rjust(self.pad), delim, values[0])
+                for value in values[1:]:
+                    print '%s   %s' % (' ' * (self.pad), value)
             else:
-                print '%s %s %s' % (key.rjust(8), delim, getattr(self.entry, key))
+                print '%s %s' % (key.rjust(self.pad), delim)
 
     def do_update(self, line):
         """update a specific attribute: update <key> <val>"""

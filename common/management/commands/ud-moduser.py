@@ -27,7 +27,7 @@ class Command(BaseCommand):
     help = 'Provides an interactive attribute editor.'
 
     def handle(self, *args, **options):
-        keys = ['dn', 'uid', 'cn', 'sn', 'c', 'l']
+        keys = ['dn', 'uid', 'cn', 'sn', 'c', 'l', 'dnsZoneEntry']
         if os.geteuid() != 0:
             raise CommandError('must be run as root')
         if len(args) != 1:
