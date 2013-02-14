@@ -15,6 +15,7 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
+from django.core.exceptions import ValidationError
 from ldapdb.models.fields import CharField, IntegerField, ListField
 
 import cmd
@@ -25,19 +26,26 @@ class Handler(cmd.Cmd):
         self.entry = entry
         self.keys = keys   # TODO add to model
         self.dirty = set() # TODO add to model (mixin)
-        self.prompt = '%s:%s # ' % (entry._meta.verbose_name, entry.pk)
+        self.prompt = 'ud:%s:%s # ' % (entry._meta.verbose_name, entry.pk)
         self.pad = max([len(x) for x in self.keys])
 
     def do_EOF(self, line):
-        """exits from the command loop on CTRL^D"""
+        """exit from the command loop on CTRL^D"""
         return True
 
     def do_delete(self, line):
         """delete a specific attribute: delete <key> [val]"""
-        (key, val) = line.split(' ', 1)
-        self.dirty.add(key)
-        # TODO self.delete(key, val)
-        return True
+        try:
+            parts = line.strip().split(' ', 1)
+            key = parts[0]
+            val = parts[1] if len(parts) is 2 else None
+            self.entry.do_delete(key, val)
+            self.dirty.add(key)
+        except ValidationError as err:
+            for message in err.messages:
+                print '*** %s' % (message)
+        except Exception as err:
+            print '*** %s' % (err)
 
     def do_discard(self, line):
         """discard local modifications"""
@@ -45,7 +53,7 @@ class Handler(cmd.Cmd):
         self.dirty.clear()
 
     def do_exit(self, line):
-        """exits from the command loop"""
+        """exit from the command loop"""
         return True
 
     def do_help(self, line):
@@ -53,16 +61,18 @@ class Handler(cmd.Cmd):
         cmd.Cmd.do_help(self, line)
 
     def do_history(self, line):
-        """displays history of commands"""
+        """display history of commands"""
         for entry in self.history:
             print entry
 
     def do_save(self, line):
+        """save local modifications"""
         self.entry.save()
+        self.entry = self.entry.__class__._default_manager.get(pk=self.entry.pk)
         self.dirty.clear()
 
     def do_show(self, line):
-        """show current attributes (flag local modifications)"""
+        """show current attributes (flag local modifications with *)"""
         for key in self.keys:
             delim = '*' if key in self.dirty else ':'
             field = self.entry._meta.get_field(key)
@@ -78,13 +88,16 @@ class Handler(cmd.Cmd):
 
     def do_update(self, line):
         """update a specific attribute: update <key> <val>"""
-        (key, val) = line.split(' ', 1)
-        if key and val:
-            try:
-                self.entry.update(key, val)
+        try:
+            (key, val) = line.strip().split(' ', 1)
+            if key and val:
+                self.entry.do_update(key, val)
                 self.dirty.add(key)
-            except Exception as err:
-                print err
+        except ValidationError as err:
+            for message in err.messages:
+                print '*** %s' % (message)
+        except Exception as err:
+            print '*** %s' % (err)
 
     def do_validate(self, line):
         """validate all attributes"""

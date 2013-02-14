@@ -35,6 +35,7 @@ import os
 import pyme.core
 import re
 import struct
+import sys
 import time
 
 from IPy import IP
@@ -47,6 +48,8 @@ class NullHandler(logging.Handler):
 h = NullHandler()
 logging.getLogger('pycountry.db').addHandler(h)
 import pycountry
+
+thismodule = sys.modules[__name__]
 
 # not IDN ready
 def validate_dns_labels(val):
@@ -107,16 +110,64 @@ def validate_birthDate(val):
 
 def validate_c(val):
     try:
-        if val.upper() not in ['AC', 'EU', 'FX', 'UK', 'YU']:
-            pycountry.countries.get(alpha2=val.upper())
+        if val is not None:
+            if val.upper() not in ['AC', 'EU', 'FX', 'UK', 'YU']:
+                pycountry.countries.get(alpha2=val.upper())
     except:
         raise ValidationError('value is not a valid ISO3166-2 country code')
 
 def validate_cn(val):
     return # TODO
 
-def validate_dnsZoneEntry(val):
-    return # TODO ... but ListField
+def validate_dnsZoneEntry(val, mode='update'):
+    # TODO ensure hostnames are lower case (fix regex above)
+    update = LineStart() + Regex(r'[-\w.]+\w') + Keyword('IN') + (
+        ( Keyword('A') + Word(nums+'.') ) | 
+        ( Keyword('AAAA') + Word(hexnums+':') ) |
+        ( Keyword('CNAME') + Regex(r'[-\w.]+\.') ) |
+        ( Keyword('MX') + Regex(r'\d{1,3}') + Regex(r'[-\w.]+\.') ) |
+        ( Keyword('TXT') + QuotedString('"', escChar='\\', unquoteResults=False) )
+    ) + LineEnd()
+    delete = LineStart() + Regex(r'[-\w.]+\w') + Optional(
+        ( Keyword('IN') + Keyword('A') ) |
+        ( Keyword('IN') + Keyword('AAAA') ) |
+        ( Keyword('IN') + Keyword('CNAME') ) |
+        ( Keyword('IN') + Keyword('MX') ) |
+        ( Keyword('IN') + Keyword('TXT') )
+    ) + LineEnd()
+    try:
+        parser = update if mode is 'update' else delete
+        tokens = parser.parseString(val)
+        if mode is 'update': # do deeper validation
+            method = 'validate_dnsZoneEntry_%s_%s' % (tokens[1], tokens[2])
+            getattr(thismodule, method)(tokens[0], *tokens[3:])
+        return tokens
+    except ValidationError as err:
+        raise err
+    except Exception as err:
+        raise ValidationError(err)
+
+def validate_dnsZoneEntry_IN_A(name, address):
+    validate_pqdn(name)
+    validate_ipv4(address)
+
+def validate_dnsZoneEntry_IN_AAAA(name, address):
+    validate_pqdn(name)
+    validate_ipv6(address)
+
+def validate_dnsZoneEntry_IN_CNAME(name, cname):
+    validate_pqdn(name)
+    validate_fqdn(cname)
+
+def validate_dnsZoneEntry_IN_MX(name, preference, exchange):
+    validate_pqdn(name)
+    if int(preference) < 1 or int(preference) > 999:
+        raise ValidationError('preference %s out of range' % preference)
+    validate_fqdn(exchange)
+
+def validate_dnsZoneEntry_IN_TXT(name, address):
+    validate_pqdn(name)
+    # TODO validate txtdata
 
 def validate_emailForward(val):
     try:
@@ -254,16 +305,16 @@ def validate_supplementaryGid(val):
 class Host(ldapdb.models.Model):
     base_dn = 'ou=hosts,dc=debian,dc=org'
     object_classes = ['debianServer']
-    allowedGroups               = ListField(    db_column='allowedGroups',                  validators=[])                          # TODO validator
-    architecture                = CharField(    db_column='architecture',                   validators=[])                          # TODO validator
-    dnsTTL                      = CharField(    db_column='dnsTTL',                         validators=[])                          # TODO validator
-    exportOptions               = ListField(    db_column='exportOptions',                  validators=[])                          # TODO validator
-    hid                         = CharField(    db_column='host',                           validators=[], primary_key=True)        # TODO validator
-    hostname                    = CharField(    db_column='hostname',                       validators=[])                          # TODO validator
-    ipHostNumber                = ListField(    db_column='ipHostNumber',                   validators=[])                          # TODO validator
-    machine                     = CharField(    db_column='machine',                        validators=[])                          # TODO validator
-    mXRecord                    = ListField(    db_column='mXRecord',                       validators=[])                          # TODO validator
-    sshRSAHostKey               = ListField(    db_column='sshRSAHostKey',                  validators=[], blank=True)              # TODO validator
+    allowedGroups               = ListField(    db_column='allowedGroups',                  validators=[])                                      # TODO validator
+    architecture                = CharField(    db_column='architecture',                   validators=[])                                      # TODO validator
+    dnsTTL                      = CharField(    db_column='dnsTTL',                         validators=[])                                      # TODO validator
+    exportOptions               = ListField(    db_column='exportOptions',                  validators=[])                                      # TODO validator
+    hid                         = CharField(    db_column='host',                           validators=[], primary_key=True)                    # TODO validator
+    hostname                    = CharField(    db_column='hostname',                       validators=[])                                      # TODO validator
+    ipHostNumber                = ListField(    db_column='ipHostNumber',                   validators=[])                                      # TODO validator
+    machine                     = CharField(    db_column='machine',                        validators=[])                                      # TODO validator
+    mXRecord                    = ListField(    db_column='mXRecord',                       validators=[])                                      # TODO validator
+    sshRSAHostKey               = ListField(    db_column='sshRSAHostKey',                  validators=[], null=True, blank=True)               # TODO validator
 
     def __str__(self):
         return self.hid
@@ -275,9 +326,9 @@ class Host(ldapdb.models.Model):
 class Group(ldapdb.models.Model):
     base_dn = 'ou=users,dc=debian,dc=org'
     object_classes = ['debianGroup']
-    gid                         = CharField(    db_column='gid',                            validators=[], primary_key=True)        # TODO validator
-    gidNumber                   = IntegerField( db_column='gidNumber',                      validators=[])                          # TODO validator
-    subGroup                    = ListField(    db_column='subGroup',                       validators=[])                          # TODO validator
+    gid                         = CharField(    db_column='gid',                            validators=[], primary_key=True)                    # TODO validator
+    gidNumber                   = IntegerField( db_column='gidNumber',                      validators=[])                                      # TODO validator
+    subGroup                    = ListField(    db_column='subGroup',                       validators=[])                                      # TODO validator
 
     def __str__(self):
         return self.gid
@@ -289,61 +340,61 @@ class Group(ldapdb.models.Model):
 class User(ldapdb.models.Model):
     base_dn = 'ou=users,dc=debian,dc=org'
     object_classes = ['debianAccount']
-    accountStatus               = CharField(    db_column='accountStatus',                  validators=[validate_accountStatus], blank=True)
-    activityFrom                = CharField(    db_column='activity-from',                  validators=[], blank=True)              # TODO validator
-    activityPGP                 = CharField(    db_column='activity-pgp',                   validators=[], blank=True)              # TODO validator
+    accountStatus               = CharField(    db_column='accountStatus',                  validators=[validate_accountStatus], null=True, blank=True)
+    activityFrom                = CharField(    db_column='activity-from',                  validators=[], null=True, blank=True)               # TODO validator
+    activityPGP                 = CharField(    db_column='activity-pgp',                   validators=[], null=True, blank=True)               # TODO validator
     allowedHost                 = ListField(    db_column='allowedHost',                    validators=[validate_allowedHost])
-    bATVToken                   = CharField(    db_column='bATVToken',                      validators=[validate_bATVToken], blank=True)
-    birthDate                   = CharField(    db_column='birthDate',                      validators=[validate_birthDate], blank=True)
-    c                           = CharField(    db_column='c',                              validators=[validate_c], blank=True)
+    bATVToken                   = CharField(    db_column='bATVToken',                      validators=[validate_bATVToken], null=True, blank=True)
+    birthDate                   = CharField(    db_column='birthDate',                      validators=[validate_birthDate], null=True, blank=True)
+    c                           = CharField(    db_column='c',                              validators=[validate_c], null=True, blank=True)
     cn                          = CharField(    db_column='cn',                             validators=[validate_cn])
     dnsZoneEntry                = ListField(    db_column='dnsZoneEntry',                   validators=[validate_dnsZoneEntry])
-    emailForward                = CharField(    db_column='emailForward',                   validators=[validate_emailForward], blank=True)
-    facsimileTelephoneNumber    = CharField(    db_column='facsimileTelephoneNumber',       validators=[validate_facsimileTelephoneNumber], blank=True)
+    emailForward                = CharField(    db_column='emailForward',                   validators=[validate_emailForward], null=True, blank=True)
+    facsimileTelephoneNumber    = CharField(    db_column='facsimileTelephoneNumber',       validators=[validate_facsimileTelephoneNumber], null=True, blank=True)
     gecos                       = CharField(    db_column='gecos',                          validators=[validate_gecos])
     gidNumber                   = IntegerField( db_column='gidNumber',                      validators=[validate_gidNumber])
     # TODO gender
     # TODO homeDirectory - not stored in LDAP; required by posixAccount use a property?
-    icqUin                      = CharField(    db_column='icqUin',                         validators=[], blank=True)              # TODO validator
-    ircNick                     = CharField(    db_column='ircNick',                        validators=[validate_ircNick], blank=True)
-    jabberJID                   = CharField(    db_column='jabberJID',                      validators=[], blank=True)              # TODO validator
+    icqUin                      = CharField(    db_column='icqUin',                         validators=[], null=True, blank=True)               # TODO validator
+    ircNick                     = CharField(    db_column='ircNick',                        validators=[validate_ircNick], null=True, blank=True)
+    jabberJID                   = CharField(    db_column='jabberJID',                      validators=[], null=True, blank=True)               # TODO validator
     # TODO jpegPhoto
-    keyFingerPrint              = CharField(    db_column='keyFingerPrint',                 validators=[validate_keyFingerPrint], blank=True)
-    l                           = CharField(    db_column='l',                              validators=[validate_l], blank=True)
-    labeledURI                  = CharField(    db_column='labeledURI',                     validators=[], blank=True)              # TODO validator
-    latitude                    = CharField(    db_column='latitude',                       validators=[], blank=True)              # TODO validator
+    keyFingerPrint              = CharField(    db_column='keyFingerPrint',                 validators=[validate_keyFingerPrint], null=True, blank=True)
+    l                           = CharField(    db_column='l',                              validators=[validate_l], null=True, blank=True)
+    labeledURI                  = CharField(    db_column='labeledURI',                     validators=[], null=True, blank=True)               # TODO validator
+    latitude                    = CharField(    db_column='latitude',                       validators=[], null=True, blank=True)               # TODO validator
     loginShell                  = CharField(    db_column='loginShell',                     validators=[validate_loginShell])
-    longitude                   = CharField(    db_column='longitude',                      validators=[], blank=True)              # TODO validator
+    longitude                   = CharField(    db_column='longitude',                      validators=[], null=True, blank=True)               # TODO validator
     # TODO mailCallout
-    mailContentInspectionAction = CharField(    db_column='mailContentInspectionAction',    validators=[], blank=True)              # TODO validator
-    mailDefaultOptions          = CharField(    db_column='mailDefaultOptions',             validators=[], blank=True)              # TODO validator
-    mailDisableMessage          = CharField(    db_column='mailDisableMessage',             validators=[], blank=True)              # TODO validator
-    mailCallout                 = CharField(    db_column='mailCallout',                    validators=[], blank=True)              # TODO validator
-    mailGreylisting             = CharField(    db_column='mailGreylisting',                validators=[], blank=True)              # TODO validator
-    mailRBL                     = ListField(    db_column='mailRBL',                        validators=[], blank=True)              # TODO validator
-    mailRHSBL                   = ListField(    db_column='mailRHSBL',                      validators=[], blank=True)              # TODO validator
-    mailWhitelist               = ListField(    db_column='mailWhitelist',                  validators=[], blank=True)              # TODO validator
-    mn                          = CharField(    db_column='mn',                             validators=[], blank=True)              # TODO validator
+    mailContentInspectionAction = CharField(    db_column='mailContentInspectionAction',    validators=[], null=True, blank=True)               # TODO validator
+    mailDefaultOptions          = CharField(    db_column='mailDefaultOptions',             validators=[], null=True, blank=True)               # TODO validator
+    mailDisableMessage          = CharField(    db_column='mailDisableMessage',             validators=[], null=True, blank=True)               # TODO validator
+    mailCallout                 = CharField(    db_column='mailCallout',                    validators=[], null=True, blank=True)               # TODO validator
+    mailGreylisting             = CharField(    db_column='mailGreylisting',                validators=[], null=True, blank=True)               # TODO validator
+    mailRBL                     = ListField(    db_column='mailRBL',                        validators=[], null=True, blank=True)               # TODO validator
+    mailRHSBL                   = ListField(    db_column='mailRHSBL',                      validators=[], null=True, blank=True)               # TODO validator
+    mailWhitelist               = ListField(    db_column='mailWhitelist',                  validators=[], null=True, blank=True)               # TODO validator
+    mn                          = CharField(    db_column='mn',                             validators=[], null=True, blank=True)               # TODO validator
     # TODO onVacation
     # TODO postalAddress
     # TODO postalCode
-    privateSub                  = CharField(    db_column='privateSub',                     validators=[], blank=True)              # TODO validator
-    shadowExpire                = IntegerField( db_column='shadowExpire',                   validators=[])                          # TODO validator
-    shadowInactive              = IntegerField( db_column='shadowInactive',                 validators=[])                          # TODO validator
-    shadowLastChange            = IntegerField( db_column='shadowLastChange',               validators=[])                          # TODO validator
-    shadowMax                   = IntegerField( db_column='shadowMax',                      validators=[])                          # TODO validator
-    shadowMin                   = IntegerField( db_column='shadowMin',                      validators=[])                          # TODO validator
-    shadowWarning               = IntegerField( db_column='shadowWarning',                  validators=[])                          # TODO validator
-    sn                          = CharField(    db_column='sn',                             validators=[])                          # TODO validator
-    sshRSAAuthKey               = ListField(    db_column='sshRSAAuthKey',                  validators=[validate_sshRSAAuthKey], blank=True)
+    privateSub                  = CharField(    db_column='privateSub',                     validators=[], null=True, blank=True)               # TODO validator
+    shadowExpire                = IntegerField( db_column='shadowExpire',                   validators=[])                                      # TODO validator
+    shadowInactive              = IntegerField( db_column='shadowInactive',                 validators=[])                                      # TODO validator
+    shadowLastChange            = IntegerField( db_column='shadowLastChange',               validators=[])                                      # TODO validator
+    shadowMax                   = IntegerField( db_column='shadowMax',                      validators=[])                                      # TODO validator
+    shadowMin                   = IntegerField( db_column='shadowMin',                      validators=[])                                      # TODO validator
+    shadowWarning               = IntegerField( db_column='shadowWarning',                  validators=[])                                      # TODO validator
+    sn                          = CharField(    db_column='sn',                             validators=[])                                      # TODO validator
+    sshRSAAuthKey               = ListField(    db_column='sshRSAAuthKey',                  validators=[validate_sshRSAAuthKey], null=True, blank=True)
     supplementaryGid            = ListField(    db_column='supplementaryGid',               validators=[validate_supplementaryGid])
     # TODO telephoneNumber
     # TODO VoIP
-    uid                         = CharField(    db_column='uid',                            validators=[], primary_key=True)        # TODO validator
-    uidNumber                   = IntegerField( db_column='uidNumber',                      validators=[])                          # TODO validator
-    userPassword                = CharField(    db_column='userPassword',                   validators=[])                          # TODO validator
-    voipPassword                = CharField(    db_column='voipPassword',                   validators=[], blank=True)              # TODO validator
-    webPassword                 = CharField(    db_column='webPassword',                    validators=[], blank=True)              # TODO validator
+    uid                         = CharField(    db_column='uid',                            validators=[], primary_key=True)                    # TODO validator
+    uidNumber                   = IntegerField( db_column='uidNumber',                      validators=[])                                      # TODO validator
+    userPassword                = CharField(    db_column='userPassword',                   validators=[])                                      # TODO validator
+    voipPassword                = CharField(    db_column='voipPassword',                   validators=[], null=True, blank=True)               # TODO validator
+    webPassword                 = CharField(    db_column='webPassword',                    validators=[], null=True, blank=True)               # TODO validator
 
     def __str__(self):
         return self.uid
@@ -351,52 +402,64 @@ class User(ldapdb.models.Model):
     def __unicode__(self):
         return self.uid
 
-    def update(self, key, val):
+    def do_delete(self, key, val=None):
         try:
             field = self._meta.get_field(key)
-            if not field: raise
             if type(field) == ListField:
-                method = 'update_%s' % (key)
-                if not hasattr(self, method): raise
+                method = '_do_delete_%s' % (key)
+                if not hasattr(self, method):
+                    raise Exception('delete function not implemented')
                 getattr(self, method)(val)
             else:
                 setattr(self, key, field.clean(val, self))
-        except:
-            ValidationError('unknown field: "%s"' % (key))
+        except ValidationError as err:
+            raise err
+        except Exception as err:
+            raise ValidationError(err)
 
-    def __delete_dnsZoneEntry(self, query, delete_all=False):
-        users = User.objects.filter(dnsZoneEntry__startswith=query)
-        if len(users) == 1: # one user owns the resource record
-            if users[0].uid == self.uid: # if that user is me
-                records = [x for x in self.dnsZoneEntry if x.startswith(query)]
-                if delete_all:
-                    for old_value in records:
-                        self.dnsZoneEntry.remove(old_value)
-                else:
-                    if len(records) == 1:
-                        old_value = records[0]
-                        self.dnsZoneEntry.remove(old_value)
-                    else:
-                        raise ValidationError('record cannot be deleted: multiple records')
+    def do_update(self, key, val):
+        try:
+            field = self._meta.get_field(key)
+            if type(field) == ListField:
+                method = '_do_update_%s' % (key)
+                if not hasattr(self, method):
+                    raise Exception('update function not implemented')
+                getattr(self, method)(val)
             else:
-                raise ValidationError('record cannot be deleted: owned by another user')
-        if len(users) >= 2: # two or more users own the record ... should never happen
-            raise ValidationError('record cannot be deleted: owned by multiple users')
+                setattr(self, key, field.clean(val, self))
+        except ValidationError as err:
+            raise err
+        except Exception as err:
+            raise ValidationError(err)
 
-    def __update_dnsZoneEntry(self, query, new_value, allow_multiple=False):
-        users = User.objects.filter(dnsZoneEntry__startswith=query)
-        if len(users) == 0: # no user owns the resource record
+    def _do_delete_dnsZoneEntry(self, line):
+        tokens = validate_dnsZoneEntry(line, mode='delete')
+        label = '%s ' % (tokens[0])   # "foo " the trailing space is a guard
+        query = ' '.join(tokens)      # "foo" or "foo IN A"
+        records = [x for x in self.dnsZoneEntry if x.startswith(label)]
+        for old_value in [x for x in records if x.startswith(query)]:
+            self.dnsZoneEntry.remove(old_value)
+            
+    def _do_update_dnsZoneEntry(self, line):
+        tokens = validate_dnsZoneEntry(line, mode='update')
+        label = '%s ' % (tokens[0])   # "foo " the trailing space is a guard
+        query = ' '.join(tokens[0:3]) # "foo IN A"
+        new_value = ' '.join(tokens)  # "foo IN A 1.2.3.4"
+        users = User.objects.filter(dnsZoneEntry__startswith=label)
+        if len(users) == 0: # no user owns any resource record for the label
             self.dnsZoneEntry.append(new_value)
-        if len(users) == 1: # one user owns the resource record
-            if users[0].uid == self.uid: # if that user is me
-                records = [x for x in self.dnsZoneEntry if x.startswith(query)]
-                if allow_multiple:
-                    if new_value not in records:
+        if len(users) == 1: # one user owns resource record(s) for the label
+            if users[0].uid == self.uid:       # if that user is me
+                records = [x for x in self.dnsZoneEntry if x.startswith(query)] 
+                if tokens[2] in ['MX']:          # allow multiple MX records
+                    if new_value not in records:    # add if does not exist
                         self.dnsZoneEntry.append(new_value)
-                else:
-                    if len(records) == 1:
+                else:                            # but only one record for the rest
+                    if len(records) == 0:           # add if does not exist
+                        self.dnsZoneEntry.append(new_value)
+                    elif len(records) == 1:         # else replace
                         old_value = records[0]
-                        if new_value != old_value: # change if different
+                        if new_value != old_value:
                             self.dnsZoneEntry.remove(old_value)
                             self.dnsZoneEntry.append(new_value)
                     else:
@@ -406,111 +469,12 @@ class User(ldapdb.models.Model):
         if len(users) >= 2: # two or more users own the record ... should never happen
             raise ValidationError('record cannot be added: owned by multiple users')
 
-    def delete_dnsZoneEntry(self, name):
-        validate_pqdn(name)
-        query = '%s' % (name.lower())
-        self.__delete_dnsZoneEntry(query, True)
-
-    def update_dnsZoneEntry(self, line):
-        parser = Regex(r'[-\w.]+\w') + Keyword('IN') + (
-            (Keyword('A')     + Word(nums+'.')                          ) | 
-            (Keyword('AAAA')  + Word(hexnums+':')                       ) |
-            (Keyword('CNAME') + Regex(r'[-\w.]+\.')                     ) |
-            (Keyword('MX')    + Regex(r'\d{1,3}') + Regex(r'[-\w.]+\.') ) |
-            (Keyword('TXT')   + Regex(r'[-\d. a-z\t<>@]+')              )
-        )
-        tokens = parser.parseString(line)
-        method = 'update_dnsZoneEntry_%s_%s' % (tokens[1], tokens[2])
-        getattr(self, method)(tokens[0], *tokens[3:])
-
-    def delete_dnsZoneEntry_IN_A(self, name):
-        validate_pqdn(name)
-        query = '%s IN A' % (name.lower())
-        self.__delete_dnsZoneEntry(query)
-
-    def update_dnsZoneEntry_IN_A(self, name, address):
-        validate_pqdn(name)
-        validate_ipv4(address)
-        query = '%s IN A' % (name.lower())
-        value = '%s IN A %s' % (name.lower(), address)
-        self.__update_dnsZoneEntry(query, value)
-
-    def delete_dnsZoneEntry_IN_AAAA(self, name):
-        validate_pqdn(name)
-        query = '%s IN AAAA' % (name.lower())
-        self.__delete_dnsZoneEntry(query)
-
-    def update_dnsZoneEntry_IN_AAAA(self, name, address):
-        validate_pqdn(name)
-        validate_ipv6(address)
-        query = '%s IN AAAA' % (name.lower())
-        value = '%s IN AAAA %s' % (name.lower(), address)
-        self.__update_dnsZoneEntry(query, value)
-
-    def delete_dnsZoneEntry_IN_CNAME(self, name):
-        validate_pqdn(name)
-        query = '%s IN CNAME' % (name.lower())
-        self.__delete_dnsZoneEntry(query)
-
-    def update_dnsZoneEntry_IN_CNAME(self, name, cname):
-        validate_pqdn(name)
-        validate_fqdn(cname)
-        query = '%s IN CNAME' % (name.lower())
-        value = '%s IN CNAME %s' % (name.lower(), cname.lower())
-        self.__update_dnsZoneEntry(query, value)
-
-    def delete_dnsZoneEntry_IN_MX(self, name):
-        validate_pqdn(name)
-        query = '%s IN MX' % (name.lower())
-        self.__delete_dnsZoneEntry(query, True)
-
-    def update_dnsZoneEntry_IN_MX(self, name, preference, exchange):
-        validate_pqdn(name)
-        if int(preference) < 1 or int(preference) > 999:
-            raise ValidationError('preference %s out of range' % preference)
-        validate_fqdn(exchange)
-        query = '%s IN MX' % (name.lower())
-        value = '%s IN MX %d %s' % (name.lower(), int(preference), exchange.lower())
-        self.__update_dnsZoneEntry(query, value, True)
-
-    def delete_dnsZoneEntry_IN_TXT(self, name):
-        validate_pqdn(name)
-        query = '%s IN TXT' % (name.lower())
-        self.__delete_dnsZoneEntry(query)
-
-    def update_dnsZoneEntry_IN_TXT(self, name, txtdata):
-        validate_pqdn(name)
-        # TODO validate txtdata
-        query = '%s IN TXT' % (name.lower())
-        value = '%s IN TXT %s' % (name.lower(), txtdata)
-        self.__update_dnsZoneEntry(query, value)
-
-    def __delete_ListField(self, key, query):
-        field = getattr(self, key)
-        records = [x for x in field if query in x]
-        for record in records:
-            field.remove(record)
-
-    # a given key can only be used once
-    def __update_ListField(self, key, query, new_value):
-        field = getattr(self, key)
-        records = [x for x in field if query in x]
-        if len(records) == 0:
-            field.append(new_value)
-        if len(records) == 1:
-            old_value = records[0]
-            if new_value != old_value: # change if different
-                field.remove(old_value)
-                field.append(new_value)
-        if len(records) >= 2: # should not get here
-            raise ValidationError('field cannot be updated: multiple entries exist!')
-
-    def delete_sshRSAAuthKey(self, key):
+    def _do_delete_sshRSAAuthKey(self, key):
         validate_sshRSAAuthKey_key(key)
         query = key
-        self.__delete_ListField('sshRSAAuthKey', query)
+        self.__do_delete_ListField('sshRSAAuthKey', query)
 
-    def update_sshRSAAuthKey(self, key, allowed_hosts=[], options=None, comment=None):
+    def _do_update_sshRSAAuthKey(self, key, allowed_hosts=[], options=None, comment=None):
         value = ''
         if allowed_hosts:
             validate_sshRSAAuthKey_allowed_hosts(allowed_hosts)
@@ -524,7 +488,27 @@ class User(ldapdb.models.Model):
         if comment:
             # TODO validate comment
             value += ' %s' % (comment)
-        self.__update_ListField('sshRSAAuthKey', query, value)
+        self.__do_update_ListField('sshRSAAuthKey', query, value)
+
+    def __do_delete_ListField(self, key, query):
+        field = getattr(self, key)
+        records = [x for x in field if query in x]
+        for record in records:
+            field.remove(record)
+
+    # a given key can only be used once
+    def __do_update_ListField(self, key, query, new_value):
+        field = getattr(self, key)
+        records = [x for x in field if query in x]
+        if len(records) == 0:
+            field.append(new_value)
+        if len(records) == 1:
+            old_value = records[0]
+            if new_value != old_value: # change if different
+                field.remove(old_value)
+                field.append(new_value)
+        if len(records) >= 2: # should not get here
+            raise ValidationError('field cannot be updated: multiple entries exist!')
 
     def is_active(self):
         return self.is_not_retired() and len(self.keyFingerPrint)
@@ -621,7 +605,7 @@ class User(ldapdb.models.Model):
         return key.read()
     key = property(_get_key)
 
-    def validate(self):
+    def validate(self): # TODO ... validate some additional business rules regarding ownership of DNS records
         errors = list()
         for fieldname in self._meta.get_all_field_names():
             field = self._meta.get_field(fieldname)
