@@ -18,6 +18,7 @@ from django.core.management.base import BaseCommand, CommandError
 from ldapdb.models.fields import CharField, IntegerField, ListField
 from common.models import User
 
+import optparse
 import os
 
 from _handler import Handler
@@ -25,6 +26,13 @@ from _handler import Handler
 class Command(BaseCommand):
     args = '<uid>'
     help = 'Provides an interactive attribute editor.'
+    option_list = BaseCommand.option_list + (
+        optparse.make_option('--dryrun',
+            action='store_true',
+            default=False,
+            help='do not commit changes'
+        ),
+    )
 
     def handle(self, *args, **options):
         keys = ['dn', 'uid', 'cn', 'sn', 'c', 'l', 'dnsZoneEntry']
@@ -35,7 +43,7 @@ class Command(BaseCommand):
         user = User.objects.get(uid=args[0])
         if not user:
             raise CommandError('user not found')
-        Handler(user, keys).cmdloop()
+        Handler(self.stdout, user, keys, options).cmdloop()
 
 
 # vim: set ts=4 sw=4 et ai si sta:

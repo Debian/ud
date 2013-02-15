@@ -26,7 +26,9 @@ import pyme.core
 import smtplib
 import sys
 
-from _mailgate import MailGate
+import cStringIO
+
+from _handler import Handler
 
 class Command(BaseCommand):
     help = 'Processes commands received in GPG-signed emails.'
@@ -46,12 +48,22 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.options = options
         try:
-            mailgate = MailGate()
             message = email.message_from_file(sys.stdin)
             (fingerprint, commands) = self.verify_message(message)
             user = self.verify_fingerprint(fingerprint)
-            result = mailgate.process_commands(user, commands, self.options['dryrun'])
-            self.generate_reply(message, result)
+            fd = cStringIO.StringIO()
+            handler = Handler(fd, user, ['cn', 'sn'], self.options)
+            for command in commands:
+                fd.write('> %s\n' % (command))
+                handler.onecmd(command)
+            if self.options['dryrun']:
+                fd.write('==> dryrun: no changes saved')
+            else:
+                if handler.has_errors:
+                    fd.write('==> errors: no changes saved')
+                else:
+                    user.save()
+            self.generate_reply(message, fd.getvalue())
         except Exception as err:
             raise CommandError(err)
 
@@ -109,7 +121,7 @@ class Command(BaseCommand):
         elif message.get('From'):
             to = message.get('From')
             (to_realname,to_mailaddr) = email.utils.parseaddr(to)
-        msg = email.mime.text.MIMEText('\n'.join(result))
+        msg = email.mime.text.MIMEText(result)
         msg['From'] = from_mailaddr
         msg['To'] = to
         msg['Subject'] = 'ud-mailgate processing results'
@@ -119,5 +131,6 @@ class Command(BaseCommand):
             s = smtplib.SMTP('localhost')
             s.sendmail(from_mailaddr, to_mailaddr, msg.as_string())
             s.quit()
+
 
 # vim: set ts=4 sw=4 et ai si sta:

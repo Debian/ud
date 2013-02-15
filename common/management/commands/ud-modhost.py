@@ -18,6 +18,7 @@ from django.core.management.base import BaseCommand, CommandError
 from ldapdb.models.fields import CharField, IntegerField, ListField
 from common.models import Host
 
+import optparse
 import os
 
 from _handler import Handler
@@ -25,6 +26,13 @@ from _handler import Handler
 class Command(BaseCommand):
     args = '<hid>'
     help = 'Provides an interactive attribute editor.'
+    option_list = BaseCommand.option_list + (
+        optparse.make_option('--dryrun',
+            action='store_true',
+            default=False,
+            help='do not commit changes'
+        ),
+    )
 
     def handle(self, *args, **options):
         keys = ['dn', 'hid', 'hostname']
@@ -35,7 +43,7 @@ class Command(BaseCommand):
         host = Host.objects.get(hid=args[0])
         if not host:
             raise CommandError('host not found')
-        Handler(host, keys).cmdloop()
+        Handler(self.stdout, host, keys, options).cmdloop()
 
 
 # vim: set ts=4 sw=4 et ai si sta:
