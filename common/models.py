@@ -385,55 +385,55 @@ class User(ldapdb.models.Model):
 
     accountStatus                           = CharField(db_column='accountStatus',
                                                 validators=[validate_accountStatus], null=True, blank=True)
-    accountStatus.permissions               = { 'self': 'none' }
+    accountStatus.permissions               = { 'self': 'none', 'root': 'read' }
 
     activityFrom                            = CharField(db_column='activity-from',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    activityFrom.permissions                = { 'self': 'none' }
+    activityFrom.permissions                = { 'self': 'none', 'root': 'read' }
 
     activityPGP                             = CharField(db_column='activity-pgp',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    activityPGP.permissions                 = { 'self': 'none' }
+    activityPGP.permissions                 = { 'self': 'none', 'root': 'read' }
 
     allowedHost                             = ListField(db_column='allowedHost',
                                                 validators=[validate_allowedHost])
-    allowedHost.permissions                 = { 'self': 'none' }
+    allowedHost.permissions                 = { 'self': 'none', 'root': 'write' }
 
     bATVToken                               = CharField(db_column='bATVToken',
                                                 validators=[validate_bATVToken], null=True, blank=True)
-    bATVToken.permissions                   = { 'self': 'none' }
+    bATVToken.permissions                   = { 'self': 'write', 'root': 'write' }
 
     birthDate                               = CharField(db_column='birthDate',
                                                 validators=[validate_birthDate], null=True, blank=True)
-    birthDate.permissions                   = { 'self': 'none' }
+    birthDate.permissions                   = { 'self': 'write', 'root': 'write' }
 
     c                                       = CharField(db_column='c',
                                                 validators=[validate_c], null=True, blank=True)
-    c.permissions                           = { 'self': 'write' }
+    c.permissions                           = { 'self': 'write', 'root': 'write' }
 
     cn                                      = CharField(db_column='cn',
                                                 validators=[validate_cn])
-    cn.permissions                          = { 'self': 'write' }
+    cn.permissions                          = { 'self': 'read', 'root': 'write' }
 
     dnsZoneEntry                            = ListField(db_column='dnsZoneEntry',
                                                 validators=[validate_dnsZoneEntry])
-    dnsZoneEntry.permissions                = { 'self': 'write' }
+    dnsZoneEntry.permissions                = { 'self': 'write', 'root': 'write' }
 
     emailForward                            = CharField(db_column='emailForward',
                                                 validators=[validate_emailForward], null=True, blank=True)
-    emailForward.permissions                = { 'self': 'write' }
+    emailForward.permissions                = { 'self': 'write', 'root': 'write' }
 
     facsimileTelephoneNumber                = CharField(db_column='facsimileTelephoneNumber',
                                                 validators=[validate_facsimileTelephoneNumber], null=True, blank=True)
-    facsimileTelephoneNumber.permissions    = { 'self': 'write' }
+    facsimileTelephoneNumber.permissions    = { 'self': 'write', 'root': 'write' }
 
     gecos                                   = CharField(db_column='gecos',
                                                 validators=[validate_gecos])
-    gecos.permissions                       = { 'self': 'read' }
+    gecos.permissions                       = { 'self': 'read', 'root': 'write' }
 
     gidNumber                               = IntegerField( db_column='gidNumber',
                                                 validators=[validate_gidNumber])
-    gidNumber.permissions                   = { 'self': 'read' }
+    gidNumber.permissions                   = { 'self': 'read', 'root': 'write' }
 
     # TODO gender
 
@@ -443,15 +443,15 @@ class User(ldapdb.models.Model):
 
     icqUin                                  = CharField(db_column='icqUin',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    icqUin.permissions                      = { 'self': 'write' }
+    icqUin.permissions                      = { 'self': 'write', 'root': 'write' }
 
     ircNick                                 = CharField(db_column='ircNick',
                                                 validators=[validate_ircNick], null=True, blank=True)
-    ircNick.permissions                     = { 'self': 'write' }
+    ircNick.permissions                     = { 'self': 'write', 'root': 'write' }
 
     jabberJID                               = CharField(db_column='jabberJID',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    jabberJID.permissions                   = { 'self': 'write' }
+    jabberJID.permissions                   = { 'self': 'write', 'root': 'write' }
 
     # TODO jpegPhoto
 
@@ -459,65 +459,65 @@ class User(ldapdb.models.Model):
 
     keyFingerPrint                          = CharField(db_column='keyFingerPrint',
                                                 validators=[validate_keyFingerPrint], null=True, blank=True)
-    keyFingerPrint.permissions              = { 'self': 'read' }
+    keyFingerPrint.permissions              = { 'self': 'read', 'root': 'write' }
 
     l                                       = CharField(db_column='l',
                                                 validators=[validate_l], null=True, blank=True)
-    l.permissions                           = { 'self': 'write' }
+    l.permissions                           = { 'self': 'write', 'root': 'write' }
 
     labeledURI                              = CharField(db_column='labeledURI',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    labeledURI.permissions                  = { 'self': 'write' }
+    labeledURI.permissions                  = { 'self': 'write', 'root': 'write' }
 
     latitude                                = CharField(db_column='latitude',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    latitude.permissions                    = { 'self': 'write' }
+    latitude.permissions                    = { 'self': 'write', 'root': 'write' }
 
     loginShell                              = CharField(db_column='loginShell',
                                                 validators=[validate_loginShell])
-    loginShell.permissions                  = { 'self': 'read' }
+    loginShell.permissions                  = { 'self': 'read', 'root': 'write' }
 
     longitude                               = CharField(db_column='longitude',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    longitude.permissions                   = { 'self': 'write' }
+    longitude.permissions                   = { 'self': 'write', 'root': 'write' }
 
     # TODO mailCallout
 
     mailContentInspectionAction             = CharField(db_column='mailContentInspectionAction',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    mailContentInspectionAction.permissions = { 'self': 'write' }
+    mailContentInspectionAction.permissions = { 'self': 'write', 'root': 'write' }
 
     mailDefaultOptions                      = CharField(db_column='mailDefaultOptions',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    mailDefaultOptions.permissions          = { 'self': 'write' }
+    mailDefaultOptions.permissions          = { 'self': 'write', 'root': 'write' }
 
     mailDisableMessage                      = CharField(db_column='mailDisableMessage',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    mailDisableMessage.permissions          = { 'self': 'read' }
+    mailDisableMessage.permissions          = { 'self': 'read', 'root': 'write' }
 
     mailCallout                             = CharField(db_column='mailCallout',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    mailCallout.permissions                 = { 'self': 'write' }
+    mailCallout.permissions                 = { 'self': 'write', 'root': 'write' }
 
     mailGreylisting                         = CharField(db_column='mailGreylisting',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    mailGreylisting.permissions             = { 'self': 'write' }
+    mailGreylisting.permissions             = { 'self': 'write', 'root': 'write' }
 
     mailRBL                                 = ListField(db_column='mailRBL',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    mailRBL.permissions                     = { 'self': 'write' }
+    mailRBL.permissions                     = { 'self': 'write', 'root': 'write' }
 
     mailRHSBL                               = ListField(db_column='mailRHSBL',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    mailRHSBL.permissions                   = { 'self': 'write' }
+    mailRHSBL.permissions                   = { 'self': 'write', 'root': 'write' }
 
     mailWhitelist                           = ListField(db_column='mailWhitelist',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    mailWhitelist.permissions               = { 'self': 'write' }
+    mailWhitelist.permissions               = { 'self': 'write', 'root': 'write' }
 
     mn                                      = CharField(db_column='mn',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    mn.permissions                          = { 'self': 'write' }
+    mn.permissions                          = { 'self': 'read', 'root': 'write' }
 
     # TODO onVacation
 
@@ -533,43 +533,43 @@ class User(ldapdb.models.Model):
 
     privateSub                              = CharField(db_column='privateSub',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    privateSub.permissions                  = { 'self': 'read' }
+    privateSub.permissions                  = { 'self': 'read', 'root': 'write' }
 
     shadowExpire                            = IntegerField( db_column='shadowExpire',
                                                 validators=[])                                      # TODO validator
-    shadowExpire.permissions                = { 'self': 'read' }
+    shadowExpire.permissions                = { 'self': 'read', 'root': 'read' }
 
     shadowInactive                          = IntegerField( db_column='shadowInactive',
                                                 validators=[])                                      # TODO validator
-    shadowInactive.permissions              = { 'self': 'read' }
+    shadowInactive.permissions              = { 'self': 'read', 'root': 'read' }
 
     shadowLastChange                        = IntegerField( db_column='shadowLastChange',
                                                 validators=[])                                      # TODO validator
-    shadowLastChange.permissions            = { 'self': 'read' }
+    shadowLastChange.permissions            = { 'self': 'read', 'root': 'read' }
 
     shadowMax                               = IntegerField( db_column='shadowMax',
                                                 validators=[])                                      # TODO validator
-    shadowMax.permissions                   = { 'self': 'read' }
+    shadowMax.permissions                   = { 'self': 'read', 'root': 'read' }
 
     shadowMin                               = IntegerField( db_column='shadowMin',
                                                 validators=[])                                      # TODO validator
-    shadowMin.permissions                   = { 'self': 'read' }
+    shadowMin.permissions                   = { 'self': 'read', 'root': 'read' , 'root': 'read' }
 
     shadowWarning                           = IntegerField( db_column='shadowWarning',
                                                 validators=[])                                      # TODO validator
-    shadowWarning.permissions               = { 'self': 'read' }
+    shadowWarning.permissions               = { 'self': 'read', 'root': 'read' }
 
     sn                                      = CharField(db_column='sn',
                                                 validators=[])                                      # TODO validator
-    sn.permissions                          = { 'self': 'write' }
+    sn.permissions                          = { 'self': 'read', 'root': 'write' }
 
     sshRSAAuthKey                           = ListField(db_column='sshRSAAuthKey',
                                                 validators=[validate_sshRSAAuthKey], null=True, blank=True)
-    sshRSAAuthKey.permissions               = { 'self': 'write' }
+    sshRSAAuthKey.permissions               = { 'self': 'write', 'root': 'write' }
 
     supplementaryGid                        = ListField(db_column='supplementaryGid',
                                                 validators=[validate_supplementaryGid])
-    supplementaryGid.permissions            = { 'self': 'read' }
+    supplementaryGid.permissions            = { 'self': 'read', 'root': 'write' }
 
     # TODO telephoneNumber
 
@@ -581,23 +581,23 @@ class User(ldapdb.models.Model):
 
     uid                                     = CharField(db_column='uid',
                                                 validators=[], primary_key=True)                    # TODO validator
-    uid.permissions                         = { 'self': 'read' }
+    uid.permissions                         = { 'self': 'read', 'root': 'read' }
 
     uidNumber                               = IntegerField( db_column='uidNumber',
                                                 validators=[])                                      # TODO validator
-    uidNumber.permissions                   = { 'self': 'read' }
+    uidNumber.permissions                   = { 'self': 'read', 'root': 'read' }
 
     userPassword                            = CharField(db_column='userPassword',
                                                 validators=[])                                      # TODO validator
-    userPassword.permissions                = { 'self': 'none' }
+    userPassword.permissions                = { 'self': 'none', 'root': 'read' }
 
     voipPassword                            = CharField(db_column='voipPassword',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    voipPassword.permissions                = { 'self': 'none' }
+    voipPassword.permissions                = { 'self': 'none', 'root': 'read' }
 
     webPassword                             = CharField(db_column='webPassword',
                                                 validators=[], null=True, blank=True)               # TODO validator
-    webPassword.permissions                 = { 'self': 'none' }
+    webPassword.permissions                 = { 'self': 'none', 'root': 'read' }
 
     def __str__(self):
         return self.uid

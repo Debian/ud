@@ -52,7 +52,7 @@ class Command(BaseCommand):
             (fingerprint, commands) = self.verify_message(message)
             user = self.verify_fingerprint(fingerprint)
             fd = cStringIO.StringIO()
-            handler = Handler(fd, user, ['cn', 'sn'], self.options)
+            handler = Handler(fd, user, user)
             for command in commands:
                 fd.write('> %s\n' % (command))
                 handler.onecmd(command)

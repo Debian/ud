@@ -28,7 +28,7 @@ from _handler import Handler
 
 class Command(BaseCommand):
     args = '[uid]'
-    help = 'Provides an interactive attribute editor.'
+    help = 'Provides an interactive attribute editor for User entries.'
     option_list = BaseCommand.option_list + (
         optparse.make_option('-D', '--binddn',
             action='store',
@@ -45,29 +45,23 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         logged_in_uid = ''
         looked_up_uid = ''
+
         if len(args) == 0:
-            # if a uid is not specified as a command line argument,
-            # use the local user's username as the looked_up_uid
-            # since this is probably being run on a debian machine
             looked_up_uid = getpass.getuser()
         elif len(args) == 1:
-            # if a uid is specified on the command line, use that
             looked_up_uid = args[0]
         else:
             raise CommandError('must specify at most one uid as argument')
+
         if not options['binddn']:
-            # if a binddn is not specified as a command line option,
-            # use the value for looked_up_uid as determined above
-            options['binddn'] = looked_up_uid
+            options['binddn'] = getpass.getuser()
         if options['binddn'].endswith(User.base_dn):
             settings.DATABASES['ldap']['USER'] = options['binddn']
             logged_in_uid = options['binddn'].split(',')[0].split('=')[0]
         else:
-            # unlike ldapsearch and friends, allow the user to be
-            # lazy and specify just the uid rather than the full dn,
-            # or even to not specify the uid (see above getuser())
             settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (options['binddn'], User.base_dn)
             logged_in_uid = options['binddn']
+
         if not options['password']:
             try:
                 options['password'] = getpass.getpass()
@@ -77,14 +71,13 @@ class Command(BaseCommand):
         if not options['password']:
             raise CommandError('must specify password')
         settings.DATABASES['ldap']['PASSWORD'] = options['password']
+
         try:
             logged_in_user = User.objects.get(uid=logged_in_uid)
             looked_up_user = User.objects.get(uid=looked_up_uid)
             if logged_in_user.dn is looked_up_user.dn or 'adm' in logged_in_user.supplementaryGid:
-                Handler(self.stdout, looked_up_user).cmdloop() # TODO pass logged_in_user, too
+                Handler(self.stdout, looked_up_user, logged_in_user).cmdloop()
             else:
-                # LDAP acls provide the 'real' protection but let's
-                # dump out early rather than launching the Handler
                 raise CommandError('insufficient privileges')
         except ObjectDoesNotExist:
             raise CommandError('user not found')

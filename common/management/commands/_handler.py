@@ -15,18 +15,18 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from ldapdb.models.fields import CharField, IntegerField, ListField
 
 import cmd
 
 class Handler(cmd.Cmd):
-    def __init__(self, fd, entry):
+    def __init__(self, fd, entry, operator):
         cmd.Cmd.__init__(self)
         self.fd = fd
         self.entry = entry
+        self.operator = operator
         self.dirty = set() # TODO add to model (mixin)
-        self.prompt = 'ud:%s:%s$ ' % (entry._meta.verbose_name, entry.pk)
         self.pad = max([len(x.name) for x in self.entry._meta.fields])
         self.has_errors = False
 
@@ -34,12 +34,22 @@ class Handler(cmd.Cmd):
         """exit from the command loop on CTRL^D"""
         return True
 
-    def do_delete(self, line): # TODO permission check
+    def do_delete(self, line):
         """delete a specific attribute: delete <key> [val]"""
         try:
             parts = line.strip().split(' ', 1)
             key = parts[0]
             val = parts[1] if len(parts) is 2 else None
+            # TODO move permission check into model?
+            field = self.entry._meta.get_field(key)
+            if 'adm' in self.operator.supplementaryGid:
+                if field.permissions['root'] is not 'write':
+                    self.fd.write('nak: insufficient privileges\n')
+                    return
+            else:
+                if field.permissions['self'] is not 'write':
+                    self.fd.write('nak: insufficient privileges\n')
+                    return
             self.entry.do_delete(key, val)
             self.dirty.add(key)
             if val:
@@ -91,12 +101,21 @@ class Handler(cmd.Cmd):
         for field in self.entry._meta.fields:
             if field.name is 'dn':
                 continue
-            if field.permissions['self'] is 'none':
-                continue
-            elif field.permissions['self'] is 'read':
-                delim = ':ro:'
-            elif field.permissions['self'] is 'write':
-                delim = ':**:' if field.name in self.dirty else ':rw:'
+            # TODO move permission chck into model?
+            if 'adm' in self.operator.supplementaryGid:
+                if field.permissions['root'] is 'none':
+                    continue
+                elif field.permissions['root'] is 'read':
+                    delim = ':ro:'
+                elif field.permissions['root'] is 'write':
+                    delim = ':**:' if field.name in self.dirty else ':rw:'
+            else:
+                if field.permissions['self'] is 'none':
+                    continue
+                elif field.permissions['self'] is 'read':
+                    delim = ':ro:'
+                elif field.permissions['self'] is 'write':
+                    delim = ':**:' if field.name in self.dirty else ':rw:'
             values = getattr(self.entry, field.name)
             if type(values) is not list:
                 values = [values]
@@ -107,11 +126,35 @@ class Handler(cmd.Cmd):
             else:
                 self.fd.write('%s %s\n' % (field.name.rjust(self.pad), delim))
 
-    def do_update(self, line): # TODO permission check
+    def do_switch(self, line):
+        """switch to a different entry"""
+        # TODO move permission check into model?
+        if 'adm' in self.operator.supplementaryGid:
+            try:
+                entry = self.entry.__class__._default_manager.get(pk=line)
+                self.entry = entry
+                self.dirty.clear()
+                self.fd.write('ack: switched entry\n')
+            except ObjectDoesNotExist:
+                self.fd.write('nak: unable to switch entry\n')
+        else:
+            self.fd.write('nak: insufficient privileges\n')
+
+    def do_update(self, line):
         """update a specific attribute: update <key> <val>"""
         try:
             (key, val) = line.strip().split(' ', 1)
             if key and val:
+                field = self.entry._meta.get_field(key)
+                # TODO move permission check into model?
+                if 'adm' in self.operator.supplementaryGid:
+                    if field.permissions['root'] is not 'write':
+                        self.fd.write('nak: insufficient privileges\n')
+                        return
+                else:
+                    if field.permissions['self'] is not 'write':
+                        self.fd.write('nak: insufficient privileges\n')
+                        return
                 self.entry.do_update(key, val)
                 self.dirty.add(key)
                 self.fd.write('ack: update %s <- %s\n' % (key, val))
@@ -131,9 +174,17 @@ class Handler(cmd.Cmd):
         """exits from the command loop"""
         return True
 
+    def _get_prompt(self):
+        suffix = '#' if 'adm' in self.operator.supplementaryGid else '$'
+        return 'ud:%s:%s%s ' % (self.entry._meta.verbose_name, self.entry.pk, suffix)
+    prompt = property(_get_prompt)
+
     def default(self, line):
         self.fd.write('nak: unknown command\n')
         self.has_errors = True
+
+    def emptyline(self):
+        return False
 
     def onecmd(self, line):
         return cmd.Cmd.onecmd(self, line)
