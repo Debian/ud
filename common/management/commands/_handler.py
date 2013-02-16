@@ -21,22 +21,20 @@ from ldapdb.models.fields import CharField, IntegerField, ListField
 import cmd
 
 class Handler(cmd.Cmd):
-    def __init__(self, fd, entry, keys, options):
+    def __init__(self, fd, entry):
         cmd.Cmd.__init__(self)
         self.fd = fd
         self.entry = entry
-        self.keys = keys   # TODO add to model
-        self.options = options
         self.dirty = set() # TODO add to model (mixin)
-        self.prompt = 'ud:%s:%s # ' % (entry._meta.verbose_name, entry.pk)
-        self.pad = max([len(x) for x in self.keys])
+        self.prompt = 'ud:%s:%s$ ' % (entry._meta.verbose_name, entry.pk)
+        self.pad = max([len(x.name) for x in self.entry._meta.fields])
         self.has_errors = False
 
     def do_EOF(self, line):
         """exit from the command loop on CTRL^D"""
         return True
 
-    def do_delete(self, line):
+    def do_delete(self, line): # TODO permission check
         """delete a specific attribute: delete <key> [val]"""
         try:
             parts = line.strip().split(' ', 1)
@@ -81,32 +79,35 @@ class Handler(cmd.Cmd):
     def do_save(self, line):
         """save local modifications"""
         if self.dirty:
-            if not self.options['dryrun']:
-                self.entry.save()
-                self.entry = self.entry.__class__._default_manager.get(pk=self.entry.pk)
-                self.dirty.clear()
-                self.fd.write('ack: local modifications saved\n')
-            else:
-                self.fd.write('ack: local modifications not saved (dryrun)\n')
+            self.entry.save()
+            self.entry = self.entry.__class__._default_manager.get(pk=self.entry.pk)
+            self.dirty.clear()
+            self.fd.write('ack: local modifications saved\n')
         else:
             self.fd.write('ack: no local modifications to save\n')
 
     def do_show(self, line):
-        """show current attributes (flag local modifications with *)"""
-        for key in self.keys:
-            delim = '*' if key in self.dirty else ':'
-            field = self.entry._meta.get_field(key)
-            values = getattr(self.entry, key)
+        """show current attributes (flag local modifications with **)"""
+        for field in self.entry._meta.fields:
+            if field.name is 'dn':
+                continue
+            if field.permissions['self'] is 'none':
+                continue
+            elif field.permissions['self'] is 'read':
+                delim = ':ro:'
+            elif field.permissions['self'] is 'write':
+                delim = ':**:' if field.name in self.dirty else ':rw:'
+            values = getattr(self.entry, field.name)
             if type(values) is not list:
                 values = [values]
             if values:
-                self.fd.write('%s %s %s\n' % (key.rjust(self.pad), delim, values[0]))
+                self.fd.write('%s %s %s\n' % (field.name.rjust(self.pad), delim, values[0]))
                 for value in values[1:]:
-                    self.fd.write('%s   %s\n' % (' ' * (self.pad), value))
+                    self.fd.write('%s %s\n' % (' ' * (self.pad+len(delim)+1), value))
             else:
-                self.fd.write('%s %s\n' % (key.rjust(self.pad), delim))
+                self.fd.write('%s %s\n' % (field.name.rjust(self.pad), delim))
 
-    def do_update(self, line):
+    def do_update(self, line): # TODO permission check
         """update a specific attribute: update <key> <val>"""
         try:
             (key, val) = line.strip().split(' ', 1)

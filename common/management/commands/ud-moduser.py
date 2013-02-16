@@ -26,16 +26,8 @@ from _handler import Handler
 class Command(BaseCommand):
     args = '<uid>'
     help = 'Provides an interactive attribute editor.'
-    option_list = BaseCommand.option_list + (
-        optparse.make_option('--dryrun',
-            action='store_true',
-            default=False,
-            help='do not commit changes'
-        ),
-    )
 
     def handle(self, *args, **options):
-        keys = ['dn', 'uid', 'cn', 'sn', 'c', 'l', 'dnsZoneEntry']
         if os.geteuid() != 0:
             raise CommandError('must be run as root')
         if len(args) != 1:
@@ -43,7 +35,7 @@ class Command(BaseCommand):
         user = User.objects.get(uid=args[0])
         if not user:
             raise CommandError('user not found')
-        Handler(self.stdout, user, keys, options).cmdloop()
+        Handler(self.stdout, user).cmdloop()
 
 
 # vim: set ts=4 sw=4 et ai si sta:

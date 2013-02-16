@@ -26,13 +26,6 @@ from _handler import Handler
 class Command(BaseCommand):
     args = '<hid>'
     help = 'Provides an interactive attribute editor.'
-    option_list = BaseCommand.option_list + (
-        optparse.make_option('--dryrun',
-            action='store_true',
-            default=False,
-            help='do not commit changes'
-        ),
-    )
 
     def handle(self, *args, **options):
         keys = ['dn', 'hid', 'hostname']
@@ -43,7 +36,7 @@ class Command(BaseCommand):
         host = Host.objects.get(hid=args[0])
         if not host:
             raise CommandError('host not found')
-        Handler(self.stdout, host, keys, options).cmdloop()
+        Handler(self.stdout, host).cmdloop()
 
 
 # vim: set ts=4 sw=4 et ai si sta:
