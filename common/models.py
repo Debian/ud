@@ -92,8 +92,11 @@ def validate_ipv6(val):
     if address.version() != 6:
         raise ValidationError('value is not an IPv6 address')
 
-def validate_accountStatus(val):
-    return # TODO
+def validate_activityFrom(val): return # TODO
+
+def validate_activityPGP(val): return # TODO
+
+def validate_accountStatus(val): return # TODO
 
 def validate_allowedHost(val):
     try:
@@ -102,11 +105,9 @@ def validate_allowedHost(val):
     except:
         ValidationError('unknown host')
 
-def validate_bATVToken(val):
-    return # TODO
+def validate_bATVToken(val): return # TODO
 
-def validate_birthDate(val):
-    return # TODO
+def validate_birthDate(val): return # TODO
 
 def validate_c(val):
     try:
@@ -116,11 +117,12 @@ def validate_c(val):
     except:
         raise ValidationError('value is not a valid ISO3166-2 country code')
 
-def validate_cn(val):
-    return # TODO
+def validate_cn(val): return # TODO
 
 def validate_dnsZoneEntry(val, mode='update'):
-    # TODO ensure hostnames are lower case (fix regex above)
+    # TODO ensure labels / hostnames are lower case
+    # TODO ensure label is not owned by another user
+    # TODO reimplement fqdn/pqdn/ipv4/ipv6 with pyparsing
     update = LineStart() + Regex(r'[-\w.]+\w') + Keyword('IN') + (
         ( Keyword('A') + Word(nums+'.') ) | 
         ( Keyword('AAAA') + Word(hexnums+':') ) |
@@ -165,9 +167,9 @@ def validate_dnsZoneEntry_IN_MX(name, preference, exchange):
         raise ValidationError('preference %s out of range' % preference)
     validate_fqdn(exchange)
 
-def validate_dnsZoneEntry_IN_TXT(name, address):
+def validate_dnsZoneEntry_IN_TXT(name, txtdata):
     validate_pqdn(name)
-    # TODO validate txtdata
+    # no need to validate txtdata ... handled by QuotedString
 
 def validate_emailForward(val):
     try:
@@ -175,11 +177,9 @@ def validate_emailForward(val):
     except:
         raise ValidationError('value is not a valid for emailForward')
 
-def validate_facsimileTelephoneNumber(val):
-    return # TODO
+def validate_facsimileTelephoneNumber(val): return # TODO
 
-def validate_gecos(val):
-    return # TODO
+def validate_gecos(val): return # TODO
 
 def validate_gidNumber(val):
     try:
@@ -188,8 +188,11 @@ def validate_gidNumber(val):
     except:
         raise ValidationError('unknown group')
 
-def validate_ircNick(val):
-    return # TODO
+def validate_icqUin(val): return # TODO
+
+def validate_ircNick(val): return # TODO
+
+def validate_jabberJID(val): return # TODO
 
 def validate_keyFingerPrint(val):
     try:
@@ -204,21 +207,47 @@ def validate_keyFingerPrint(val):
     except:
         raise ValidationError('value is not valid for keyFingerPrint')
 
-def validate_l(val):
-    return # TODO
+def validate_l(val): return # TODO
+
+def validate_labeledURI(val): return # TODO
+
+def validate_latitude(val): return # TODO
 
 def validate_loginShell(val):
     try:
-        loginShells = [ '/bin/sh', '/bin/false', '/bin/bash', '/usr/bin/bash', '/bin/csh',
-                        '/usr/bin/csh', '/bin/ksh', '/usr/bin/ksh', '/bin/tcsh',
-                        '/usr/bin/tcsh', '/bin/zsh', '/usr/bin/zsh']
+        loginShells = [ '/bin/sh', '/bin/false', '/bin/bash', '/usr/bin/bash',
+                        '/bin/csh', '/usr/bin/csh', '/bin/ksh', '/usr/bin/ksh',
+                        '/bin/tcsh', '/usr/bin/tcsh', '/bin/zsh', '/usr/bin/zsh']
         if val not in loginShells:
             raise
     except:
         raise ValidationError('value is not a valid login shell')
 
-def validate_sshRSAAuthKey(val):
-    return # TODO ... but ListField
+def validate_longitude(val): return # TODO
+
+def validate_mailContentInspectionAction(val): return # TODO
+
+def validate_mailDefaultOptions(val): return # TODO
+
+def validate_mailDisableMessage(val): return # TODO
+
+def validate_mailCallout(val): return # TODO
+
+def validate_mailGreylisting(val): return # TODO
+
+def validate_mailRBL(val): return # TODO
+
+def validate_mailRHSBL(val): return # TODO
+
+def validate_mailWhitelist(val): return # TODO
+
+def validate_mn(val): return # TODO
+
+def validate_privateSub(val): return # TODO
+
+def validate_sn(val): return # TODO
+
+def validate_sshRSAAuthKey(val): return # TODO
 
 def validate_sshRSAAuthKey_key(encoded_key):
     decoded_key = base64.b64decode(encoded_key)
@@ -302,6 +331,12 @@ def validate_supplementaryGid(val):
         Group.objects.get(gid__exact=val)
     except:
         raise ValidationError('not a valid group')
+
+def validate_userPassword(val): return # TODO
+
+def validate_voipPassword(val): return # TODO
+
+def validate_webPassword(val): return # TODO
 
 
 class Host(ldapdb.models.Model):
@@ -388,11 +423,11 @@ class User(ldapdb.models.Model):
     accountStatus.permissions               = { 'self': 'none', 'root': 'read' }
 
     activityFrom                            = CharField(db_column='activity-from',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_activityFrom], null=True, blank=True)
     activityFrom.permissions                = { 'self': 'none', 'root': 'read' }
 
     activityPGP                             = CharField(db_column='activity-pgp',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_activityPGP], null=True, blank=True)
     activityPGP.permissions                 = { 'self': 'none', 'root': 'read' }
 
     allowedHost                             = ListField(db_column='allowedHost',
@@ -419,9 +454,13 @@ class User(ldapdb.models.Model):
                                                 validators=[validate_dnsZoneEntry])
     dnsZoneEntry.permissions                = { 'self': 'write', 'root': 'write' }
 
+    # emailAddress = property(_get_emailAddress)
+
     emailForward                            = CharField(db_column='emailForward',
                                                 validators=[validate_emailForward], null=True, blank=True)
     emailForward.permissions                = { 'self': 'write', 'root': 'write' }
+
+    #expire = property(_get_expire)
 
     facsimileTelephoneNumber                = CharField(db_column='facsimileTelephoneNumber',
                                                 validators=[validate_facsimileTelephoneNumber], null=True, blank=True)
@@ -442,7 +481,7 @@ class User(ldapdb.models.Model):
     # TODO homeDirectory - not stored in LDAP; required by posixAccount use a property?
 
     icqUin                                  = CharField(db_column='icqUin',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_icqUin], null=True, blank=True)
     icqUin.permissions                      = { 'self': 'write', 'root': 'write' }
 
     ircNick                                 = CharField(db_column='ircNick',
@@ -450,12 +489,14 @@ class User(ldapdb.models.Model):
     ircNick.permissions                     = { 'self': 'write', 'root': 'write' }
 
     jabberJID                               = CharField(db_column='jabberJID',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_jabberJID], null=True, blank=True)
     jabberJID.permissions                   = { 'self': 'write', 'root': 'write' }
 
     # TODO jpegPhoto
 
     # TODO jpegPhoto.permissions
+
+    #key = property(_get_key)
 
     keyFingerPrint                          = CharField(db_column='keyFingerPrint',
                                                 validators=[validate_keyFingerPrint], null=True, blank=True)
@@ -466,11 +507,11 @@ class User(ldapdb.models.Model):
     l.permissions                           = { 'self': 'write', 'root': 'write' }
 
     labeledURI                              = CharField(db_column='labeledURI',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_labeledURI], null=True, blank=True)
     labeledURI.permissions                  = { 'self': 'write', 'root': 'write' }
 
     latitude                                = CharField(db_column='latitude',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_latitude], null=True, blank=True)
     latitude.permissions                    = { 'self': 'write', 'root': 'write' }
 
     loginShell                              = CharField(db_column='loginShell',
@@ -478,50 +519,52 @@ class User(ldapdb.models.Model):
     loginShell.permissions                  = { 'self': 'read', 'root': 'write' }
 
     longitude                               = CharField(db_column='longitude',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_longitude], null=True, blank=True)
     longitude.permissions                   = { 'self': 'write', 'root': 'write' }
 
     # TODO mailCallout
 
     mailContentInspectionAction             = CharField(db_column='mailContentInspectionAction',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_mailContentInspectionAction], null=True, blank=True)
     mailContentInspectionAction.permissions = { 'self': 'write', 'root': 'write' }
 
     mailDefaultOptions                      = CharField(db_column='mailDefaultOptions',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_mailDefaultOptions], null=True, blank=True)
     mailDefaultOptions.permissions          = { 'self': 'write', 'root': 'write' }
 
     mailDisableMessage                      = CharField(db_column='mailDisableMessage',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_mailDisableMessage], null=True, blank=True)
     mailDisableMessage.permissions          = { 'self': 'read', 'root': 'write' }
 
     mailCallout                             = CharField(db_column='mailCallout',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_mailCallout], null=True, blank=True)
     mailCallout.permissions                 = { 'self': 'write', 'root': 'write' }
 
     mailGreylisting                         = CharField(db_column='mailGreylisting',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_mailGreylisting], null=True, blank=True)
     mailGreylisting.permissions             = { 'self': 'write', 'root': 'write' }
 
     mailRBL                                 = ListField(db_column='mailRBL',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_mailRBL], null=True, blank=True)
     mailRBL.permissions                     = { 'self': 'write', 'root': 'write' }
 
     mailRHSBL                               = ListField(db_column='mailRHSBL',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_mailRHSBL], null=True, blank=True)
     mailRHSBL.permissions                   = { 'self': 'write', 'root': 'write' }
 
     mailWhitelist                           = ListField(db_column='mailWhitelist',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_mailWhitelist], null=True, blank=True)
     mailWhitelist.permissions               = { 'self': 'write', 'root': 'write' }
 
     mn                                      = CharField(db_column='mn',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_mn], null=True, blank=True)
     mn.permissions                          = { 'self': 'read', 'root': 'write' }
 
     # TODO onVacation
 
     # TODO onVacation.permissions
+
+    #password = property(_get_password)
 
     # TODO postalAddress
 
@@ -532,35 +575,35 @@ class User(ldapdb.models.Model):
     # TODO postalCode.permissions
 
     privateSub                              = CharField(db_column='privateSub',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_privateSub], null=True, blank=True)
     privateSub.permissions                  = { 'self': 'read', 'root': 'write' }
 
     shadowExpire                            = IntegerField( db_column='shadowExpire',
-                                                validators=[])                                      # TODO validator
+                                                validators=[])
     shadowExpire.permissions                = { 'self': 'read', 'root': 'read' }
 
     shadowInactive                          = IntegerField( db_column='shadowInactive',
-                                                validators=[])                                      # TODO validator
+                                                validators=[])
     shadowInactive.permissions              = { 'self': 'read', 'root': 'read' }
 
     shadowLastChange                        = IntegerField( db_column='shadowLastChange',
-                                                validators=[])                                      # TODO validator
+                                                validators=[])
     shadowLastChange.permissions            = { 'self': 'read', 'root': 'read' }
 
     shadowMax                               = IntegerField( db_column='shadowMax',
-                                                validators=[])                                      # TODO validator
+                                                validators=[])
     shadowMax.permissions                   = { 'self': 'read', 'root': 'read' }
 
     shadowMin                               = IntegerField( db_column='shadowMin',
-                                                validators=[])                                      # TODO validator
+                                                validators=[])
     shadowMin.permissions                   = { 'self': 'read', 'root': 'read' , 'root': 'read' }
 
     shadowWarning                           = IntegerField( db_column='shadowWarning',
-                                                validators=[])                                      # TODO validator
+                                                validators=[])
     shadowWarning.permissions               = { 'self': 'read', 'root': 'read' }
 
     sn                                      = CharField(db_column='sn',
-                                                validators=[])                                      # TODO validator
+                                                validators=[validate_sn])
     sn.permissions                          = { 'self': 'read', 'root': 'write' }
 
     sshRSAAuthKey                           = ListField(db_column='sshRSAAuthKey',
@@ -580,23 +623,23 @@ class User(ldapdb.models.Model):
     # TODO VoIP.permissions
 
     uid                                     = CharField(db_column='uid',
-                                                validators=[], primary_key=True)                    # TODO validator
+                                                validators=[], primary_key=True)
     uid.permissions                         = { 'self': 'read', 'root': 'read' }
 
     uidNumber                               = IntegerField( db_column='uidNumber',
-                                                validators=[])                                      # TODO validator
+                                                validators=[])
     uidNumber.permissions                   = { 'self': 'read', 'root': 'read' }
 
     userPassword                            = CharField(db_column='userPassword',
-                                                validators=[])                                      # TODO validator
+                                                validators=[validate_userPassword])
     userPassword.permissions                = { 'self': 'none', 'root': 'read' }
 
     voipPassword                            = CharField(db_column='voipPassword',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_voipPassword], null=True, blank=True)
     voipPassword.permissions                = { 'self': 'none', 'root': 'read' }
 
     webPassword                             = CharField(db_column='webPassword',
-                                                validators=[], null=True, blank=True)               # TODO validator
+                                                validators=[validate_webPassword], null=True, blank=True)
     webPassword.permissions                 = { 'self': 'none', 'root': 'read' }
 
     def __str__(self):
@@ -774,14 +817,6 @@ class User(ldapdb.models.Model):
             return parsed >= datetime.datetime.now()
         return False
 
-    def _get_password(self):
-        p = self.userPassword
-        if not p.upper().startswith('{CRYPT}') or len(p) > 50:
-            return p
-        else:
-            return p[7:]
-    password = property(_get_password)
-
     def _get_emailAddress(self):
         tokens = list()
         if self.cn: tokens.append(self.cn)
@@ -807,6 +842,14 @@ class User(ldapdb.models.Model):
         key.seek(0,0)
         return key.read()
     key = property(_get_key)
+
+    def _get_password(self):
+        p = self.userPassword
+        if not p.upper().startswith('{CRYPT}') or len(p) > 50:
+            return p
+        else:
+            return p[7:]
+    password = property(_get_password)
 
     def validate(self): # TODO ... validate some additional business rules regarding ownership of DNS records
         errors = list()
