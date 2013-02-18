@@ -168,7 +168,14 @@ class Handler(cmd.Cmd):
 
     def do_validate(self, line):
         """validate all attributes"""
-        self.entry.validate()
+        try:
+            self.entry.validate()
+            self.fd.write('ack: no validation errors\n')
+        except ValidationError as err:
+            for message in err.messages:
+                self.fd.write('nak: %s\n' % (message))
+                self.has_errors = True
+            pass
 
     def do_quit(self, line):
         """exits from the command loop"""

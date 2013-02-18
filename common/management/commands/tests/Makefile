@@ -1,3 +1,6 @@
+.PHONY: all
+all: echelon-encrypted echelon-plaintext mailgate
+
 .PHONY: echelon-encrypted
 echelon-encrypted: encrypted.eml
 	cat $< | ../../../../manage ud-echelon --dryrun

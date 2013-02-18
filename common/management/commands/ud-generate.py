@@ -260,4 +260,5 @@ class Command(BaseCommand):
                         maker.add(user.uid, val)
             maker.finish()
 
+
 # vim: set ts=4 sw=4 et ai si sta:
