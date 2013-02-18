@@ -107,7 +107,7 @@ def validate_bATVToken(val):
     validator.parseString(val)
 
 def validate_birthDate(val):
-    validator = pyparsing.LineStart() + pyparsing.Word(pyparsing.nums, exact=8), pyparsing.LineEnd()
+    validator = pyparsing.LineStart() + pyparsing.Word(pyparsing.nums, exact=8) + pyparsing.LineEnd()
     validator.parseString(val)
 
 def validate_c(val):
