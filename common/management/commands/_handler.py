@@ -131,6 +131,8 @@ class Handler(cmd.Cmd):
         # TODO move permission check into model?
         if 'adm' in self.operator.supplementaryGid:
             try:
+                if self.dirty:
+                    self.entry.save()
                 entry = self.entry.__class__._default_manager.get(pk=line)
                 self.entry = entry
                 self.dirty.clear()
@@ -210,7 +212,8 @@ class Handler(cmd.Cmd):
         return cmd.Cmd.preloop(self)
 
     def postloop(self):
-        self.fd.write('exiting... %s\n' % ('dirty' if self.dirty else ''))
+        if self.dirty:
+            self.entry.save()
         return cmd.Cmd.postloop(self)
 
 
