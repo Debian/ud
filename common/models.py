@@ -184,10 +184,26 @@ def validate_emailForward(val):
         raise ValidationError('value is not a valid for emailForward')
 
 def validate_facsimileTelephoneNumber(val):
-    validator = pyparsing.LineStart() + pyparsing.Word(pyparsing.nums+'+-.') + pyparsing.LineEnd()
-    validator.parseString()
+    validator = (
+        pyparsing.LineStart() +
+        pyparsing.Word(pyparsing.nums+'+-.') +
+        pyparsing.LineEnd()
+    )
+    validator.parseString(val)
 
 def validate_gecos(val): return # TODO
+
+def validate_gender(val): # ISO 5218
+    validator = (
+        pyparsing.LineStart() + (
+            pyparsing.Keyword('0') | # not known
+            pyparsing.Keyword('1') | # male
+            pyparsing.Keyword('2') | # female
+            pyparsing.Keyword('9')   # unspecified
+        ) +
+        pyparsing.LineEnd()
+    )
+    validator.parseString(val)
 
 def validate_gidNumber(val):
     try:
@@ -202,7 +218,9 @@ def validate_icqUin(val):
 
 def validate_ircNick(val): return # TODO
 
-def validate_jabberJID(val): return # TODO
+def validate_jabberJID(val):
+    validator = pyparsing.LineStart() + pyparsing.Regex(r'[^<>@]+@.+') + pyparsing.LineEnd()
+    validator.parseString(val)
 
 def validate_keyFingerPrint(val):
     try:
@@ -235,15 +253,48 @@ def validate_loginShell(val):
 
 def validate_longitude(val): return # TODO
 
-def validate_mailContentInspectionAction(val): return # TODO
+def validate_mailCallout(val):
+    validator = (
+        pyparsing.LineStart() + (
+            pyparsing.Keyword('TRUE') |
+            pyparsing.Keyword('FALSE')
+        ) +
+        pyparsing.LineEnd()
+    )
+    validator.parseString(val)
 
-def validate_mailDefaultOptions(val): return # TODO
+def validate_mailContentInspectionAction(val):
+    validator = (
+        pyparsing.LineStart() + (
+            pyparsing.Keyword('reject') |
+            pyparsing.Keyword('blackhole') |
+            pyparsing.Keyword('markup')
+        ) +
+        pyparsing.LineEnd()
+    )
+    validator.parseString(val)
+
+def validate_mailDefaultOptions(val):
+    validator = (
+        pyparsing.LineStart() + (
+            pyparsing.Keyword('TRUE') |
+            pyparsing.Keyword('FALSE')
+        ) +
+        pyparsing.LineEnd()
+    )
+    validator.parseString(val)
 
 def validate_mailDisableMessage(val): return # TODO
 
-def validate_mailCallout(val): return # TODO
-
-def validate_mailGreylisting(val): return # TODO
+def validate_mailGreylisting(val):
+    validator = (
+        pyparsing.LineStart() + (
+            pyparsing.Keyword('TRUE') |
+            pyparsing.Keyword('FALSE')
+        ) +
+        pyparsing.LineEnd()
+    )
+    validator.parseString(val)
 
 def validate_mailRBL(val): return # TODO
 
@@ -500,13 +551,13 @@ class User(ldapdb.models.Model):
                                                 validators=[validate_gecos])
     gecos.permissions                       = { 'self': 'read', 'root': 'write' }
 
-    gidNumber                               = IntegerField( db_column='gidNumber',
+    gidNumber                               = IntegerField(db_column='gidNumber',
                                                 validators=[validate_gidNumber])
     gidNumber.permissions                   = { 'self': 'read', 'root': 'write' }
 
-    # TODO gender
-
-    # TODO gender.permissions
+    gender                                  = CharField(db_column='gender', # XXX use IntegerField instead?
+                                                validators=[validate_gender], null=True, blank=True)
+    gender.permissions                      = { 'self': 'write', 'root': 'write' }
 
     # TODO homeDirectory - not stored in LDAP; required by posixAccount use a property?
 
