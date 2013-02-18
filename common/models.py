@@ -23,16 +23,13 @@ import ldapdb.models
 import ldap
 ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, '/etc/ssl/certs/ca-certificates.crt')
 
-import pyparsing
-from pyparsing import CaselessKeyword, Keyword, LineEnd, LineStart, Literal, Optional, QuotedString, Regex, Suppress, Word
-from pyparsing import alphas, alphanums, delimitedList, hexnums, nums
-
 import base64
 import datetime
 import json
 import hashlib
 import os
 import pyme.core
+import pyparsing
 import re
 import struct
 import sys
@@ -105,9 +102,13 @@ def validate_allowedHost(val):
     except:
         ValidationError('unknown host')
 
-def validate_bATVToken(val): return # TODO
+def validate_bATVToken(val):
+    validator = pyparsing.LineStart() + pyparsing.Word(pyparsing.alphanums+'-') + pyparsing.LineEnd()
+    validator.parseString(val)
 
-def validate_birthDate(val): return # TODO
+def validate_birthDate(val):
+    validator = pyparsing.LineStart() + pyparsing.Word(pyparsing.nums, exact=8), pyparsing.LineEnd()
+    validator.parseString(val)
 
 def validate_c(val):
     try:
@@ -123,20 +124,25 @@ def validate_dnsZoneEntry(val, mode='update'):
     # TODO ensure labels / hostnames are lower case
     # TODO ensure label is not owned by another user
     # TODO reimplement fqdn/pqdn/ipv4/ipv6 with pyparsing
-    update = LineStart() + Regex(r'[-\w.]+\w') + Keyword('IN') + (
-        ( Keyword('A') + Word(nums+'.') ) | 
-        ( Keyword('AAAA') + Word(hexnums+':') ) |
-        ( Keyword('CNAME') + Regex(r'[-\w.]+\.') ) |
-        ( Keyword('MX') + Regex(r'\d{1,3}') + Regex(r'[-\w.]+\.') ) |
-        ( Keyword('TXT') + QuotedString('"', escChar='\\', unquoteResults=False) )
-    ) + LineEnd()
-    delete = LineStart() + Regex(r'[-\w.]+\w') + Optional(
-        ( Keyword('IN') + Keyword('A') ) |
-        ( Keyword('IN') + Keyword('AAAA') ) |
-        ( Keyword('IN') + Keyword('CNAME') ) |
-        ( Keyword('IN') + Keyword('MX') ) |
-        ( Keyword('IN') + Keyword('TXT') )
-    ) + LineEnd()
+    update = (
+        pyparsing.LineStart() + pyparsing.Regex(r'[-\w.]+\w') + pyparsing.Keyword('IN') + (
+            ( pyparsing.Keyword('A') + pyparsing.Word(pyparsing.nums+'.') ) | 
+            ( pyparsing.Keyword('AAAA') + pyparsing.Word(pyparsing.hexnums+':') ) |
+            ( pyparsing.Keyword('CNAME') + pyparsing.Regex(r'[-\w.]+\.') ) |
+            ( pyparsing.Keyword('MX') + pyparsing.Regex(r'\d{1,3}') + pyparsing.Regex(r'[-\w.]+\.') ) |
+            ( pyparsing.Keyword('TXT') + pyparsing.QuotedString('"', escChar='\\', unquoteResults=False) )
+        ) +
+        pyparsing.LineEnd()
+    )
+    delete = (
+        pyparsing.LineStart() + pyparsing.Regex(r'[-\w.]+\w') + pyparsing.Optional(
+            ( pyparsing.Keyword('IN') + pyparsing.Keyword('A') ) |
+            ( pyparsing.Keyword('IN') + pyparsing.Keyword('AAAA') ) |
+            ( pyparsing.Keyword('IN') + pyparsing.Keyword('CNAME') ) |
+            ( pyparsing.Keyword('IN') + pyparsing.Keyword('MX') ) |
+            ( pyparsing.Keyword('IN') + pyparsing.Keyword('TXT') )
+        ) + pyparsing.LineEnd()
+    )
     try:
         validator = update if mode is 'update' else delete
         tokens = validator.parseString(val)
@@ -177,7 +183,9 @@ def validate_emailForward(val):
     except:
         raise ValidationError('value is not a valid for emailForward')
 
-def validate_facsimileTelephoneNumber(val): return # TODO
+def validate_facsimileTelephoneNumber(val):
+    validator = pyparsing.LineStart() + pyparsing.Word(pyparsing.nums+'+-.') + pyparsing.LineEnd()
+    validator.parseString()
 
 def validate_gecos(val): return # TODO
 
@@ -188,7 +196,9 @@ def validate_gidNumber(val):
     except:
         raise ValidationError('unknown group')
 
-def validate_icqUin(val): return # TODO
+def validate_icqUin(val):
+    validator = pyparsing.LineStart() + pyparsing.Word(pyparsing.nums, min=5) + pyparsing.LineEnd()
+    validator.parseString(val)
 
 def validate_ircNick(val): return # TODO
 
@@ -247,7 +257,54 @@ def validate_privateSub(val): return # TODO
 
 def validate_sn(val): return # TODO
 
-def validate_sshRSAAuthKey(val): return # TODO
+def validate_sshRSAAuthKey(val, mode='update'):
+    hostname = pyparsing.Word(pyparsing.alphanums+'-.')
+    flag = (
+        # reject flags: cert-authority
+        pyparsing.CaselessKeyword('no-agent-forwarding') |
+        pyparsing.CaselessKeyword('no-port-forwarding') |
+        pyparsing.CaselessKeyword('no-pty') |
+        pyparsing.CaselessKeyword('no-user-rc') |
+        pyparsing.CaselessKeyword('no-X11-forwarding')
+    )
+    key = (
+        # reject keys: principals, tunnel
+        pyparsing.CaselessKeyword('command') |
+        pyparsing.CaselessKeyword('environment') |
+        pyparsing.CaselessKeyword('from') |
+        pyparsing.CaselessKeyword('permitopen')
+    )
+    keyval = key + pyparsing.Literal('=') + pyparsing.QuotedString('"', unquoteResults=False)
+    options = pyparsing.delimitedList(flag | keyval, combine=True)
+    allowed_hosts = (
+        pyparsing.Suppress(pyparsing.Keyword('allowed_hosts')) + 
+        pyparsing.Suppress(pyparsing.Literal('=')) +
+        pyparsing.Group(pyparsing.delimitedList(hostname))
+    )
+    update = (
+        pyparsing.LineStart() +
+        pyparsing.Optional(allowed_hosts, default=[]) +
+        pyparsing.Optional(options, default=[]) +
+        pyparsing.Keyword('ssh-rsa') + pyparsing.Regex('[a-zA-Z0-9=/+]+') +
+        pyparsing.Optional(pyparsing.Regex('.*'), default='') +
+        pyparsing.LineEnd()
+    )
+    delete = (
+        pyparsing.LineStart() +
+        pyparsing.Keyword('ssh-rsa') + pyparsing.Regex('[a-zA-Z0-9=/+]+') +
+        pyparsing.LineEnd()
+    )
+    try:
+        validator = update if mode is 'update' else delete
+        tokens = validator.parseString(val)
+        if tokens[0] and not set(tokens[0]).issubset(set([x.hostname for x in Host.objects.all()])):
+            raise ValidationError('unknown host in allowed_hosts')
+        validate_sshRSAAuthKey_key(tokens[3])
+        return tokens
+    except ValidationError as err:
+        raise err
+    except Exception as err:
+        raise ValidationError(err)
 
 def validate_sshRSAAuthKey_key(encoded_key):
     decoded_key = base64.b64decode(encoded_key)
@@ -294,33 +351,6 @@ def validate_sshRSAAuthKey_key(encoded_key):
     for line in file('/usr/share/ssh/blacklist.RSA-%d' % (key_size)):
         if fingerprint == line.rstrip():
             raise ValidationError('key is weak (debian openssl fiasco)')
-
-def validate_sshRSAAuthKey_options(options):
-    flag = (
-        # reject flags: cert-authority
-        CaselessKeyword('no-agent-forwarding') |
-        CaselessKeyword('no-port-forwarding') |
-        CaselessKeyword('no-pty') |
-        CaselessKeyword('no-user-rc') |
-        CaselessKeyword('no-X11-forwarding')
-    )
-    key = (
-        # reject keys: principals, tunnel
-        CaselessKeyword('command') |
-        CaselessKeyword('environment') |
-        CaselessKeyword('from') |
-        CaselessKeyword('permitopen')
-    )
-    keyval = key + Literal('=') + QuotedString('"', unquoteResults=False)
-    validator = LineStart() + delimitedList(flag | keyval, combine=True) + LineEnd()
-    try:
-        validator.parseString(options)
-    except:
-        raise ValidationError('options are not valid')
-
-def validate_sshRSAAuthKey_allowed_hosts(allowed_hosts):
-    if not set(allowed_hosts).issubset(set([x.hostname for x in Host.objects.all()])):
-        raise ValidationError('unknown host in allowed_hosts')
 
 def validate_supplementaryGid(val):
     try:
@@ -715,25 +745,19 @@ class User(ldapdb.models.Model):
         if len(users) >= 2: # two or more users own the record ... should never happen
             raise ValidationError('record cannot be added: owned by multiple users')
 
-    def _do_delete_sshRSAAuthKey(self, key):
-        validate_sshRSAAuthKey_key(key)
-        query = key
+    def _do_delete_sshRSAAuthKey(self, line):
+        tokens = validate_sshRSAAuthKey(key, mode='delete')
+        query = tokens[3]
         self.__do_delete_ListField('sshRSAAuthKey', query)
 
-    def _do_update_sshRSAAuthKey(self, key, allowed_hosts=[], options=None, comment=None):
+    def _do_update_sshRSAAuthKey(self, line):
+        tokens = validate_sshRSAAuthKey(key, mode='update')
         value = ''
-        if allowed_hosts:
-            validate_sshRSAAuthKey_allowed_hosts(allowed_hosts)
-            value = 'allowed_hosts=%s ' % (','.join(allowed_hosts))
-        if options:
-            validate_sshRSAAuthKey_options(options)
-            value += '%s ' % (options)
-        validate_sshRSAAuthKey_key(key)
-        query = key
-        value += 'ssh-rsa %s' % (key)
-        if comment:
-            # TODO validate comment
-            value += ' %s' % (comment)
+        if tokens[0]: value += 'allowed_hosts=%s ' % (','.join(tokens[0]))
+        if tokens[1]: value += '%s ' % (tokens[1])
+        query = tokens[3]
+        value += 'ssh-rsa %s' % (tokens[3])
+        if comment: value += ' %s' % (tokens[4])
         self.__do_update_ListField('sshRSAAuthKey', query, value)
 
     def __do_delete_ListField(self, key, query):
