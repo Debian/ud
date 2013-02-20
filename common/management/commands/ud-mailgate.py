@@ -44,7 +44,7 @@ class Command(BaseCommand):
         ),
         optparse.make_option('--config',
             action='store',
-            default='',
+            default='/etc/ud/mailgate.yaml',
             help='specify configuration file'
         ),
     )
@@ -52,10 +52,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.options = options
         try:
-            if self.options['config']:
-                load_configuration_file(self.options['config'])
-            else:
-                raise CommandError('must specify configuration file')
+            load_configuration_file(self.options['config'])
             message = email.message_from_file(sys.stdin)
             (fingerprint, commands) = verify_message(message)
             user = get_user_from_fingerprint(fingerprint)
