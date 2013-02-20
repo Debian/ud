@@ -226,7 +226,7 @@ def validate_keyFingerPrint(val):
     try:
         ctx = pyme.core.Context()
         ctx.set_armor(True)
-        ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.PROJECT_DIR))
+        ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.CACHE_DIR, 'gnupg'))
         key = pyme.core.Data()
         ctx.op_export(val.encode('ascii'), 0, key)
         key.seek(0,0)
@@ -911,7 +911,7 @@ class User(ldapdb.models.Model):
     def _get_key(self):
         ctx = pyme.core.Context()
         ctx.set_armor(True)
-        ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.PROJECT_DIR))
+        ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.CACHE_DIR, 'gnupg'))
         key = pyme.core.Data()
         ctx.op_export(self.keyFingerPrint.encode('ascii'), 0, key)
         key.seek(0,0)

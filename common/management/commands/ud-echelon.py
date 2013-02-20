@@ -83,7 +83,7 @@ class Command(BaseCommand):
                 if self.options['dryrun']:
                     sys.stdout.write('%s: %s\n' % (key, val))
                 else:
-                    user.update(key, val)
+                    user.do_update(key, val)
         except Exception as err:
             raise CommandError(err)
 

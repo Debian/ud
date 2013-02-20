@@ -35,7 +35,7 @@ def verify_message(message):
         if not y:
             raise Exception('malformed message: bad From header')
     ctx = pyme.core.Context()
-    ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.PROJECT_DIR))
+    ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.CACHE_DIR, 'gnupg'))
     if message.get_content_type() == 'text/plain':
         try: # normal signature (clearsign or sign & armor)
             plaintext = pyme.core.Data() # output
