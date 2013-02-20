@@ -17,13 +17,14 @@
 from django.conf import settings
 from common.models import User
 
-import optparse
 import email
 import email.utils
 import nameparser
+import optparse
 import os
-import pyme.constants.sigsum
 import pyme.core
+import shutil
+import tempfile
 
 def verify_message(message):
     if message.get('Reply-To'):
@@ -34,35 +35,47 @@ def verify_message(message):
         (x,y) = email.utils.parseaddr(message.get('From'))
         if not y:
             raise Exception('malformed message: bad From header')
-    ctx = pyme.core.Context()
-    ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.CACHE_DIR, 'gnupg'))
-    if message.get_content_type() == 'text/plain':
-        try: # normal signature (clearsign or sign & armor)
-            plaintext = pyme.core.Data() # output
-            signature = pyme.core.Data(message.get_payload())
-            ctx.op_verify(signature, None, plaintext)
-            plaintext.seek(0,0)
-        except Exception as err:
-            raise Exception('malformed text/plain message')
-        commands = plaintext.read().splitlines()
-    elif message.get_content_type() == 'multipart/signed':
-        try: # detached signature
-            signedtxt = pyme.core.Data(message.get_payload(0).as_string())
-            signature = pyme.core.Data(message.get_payload(1).as_string())
-            ctx.op_verify(signature, signedtxt, None)
-        except:
-            raise Exception('malformed multipart/signed message')
-        commands = message.get_payload(0).get_payload(decode=True).splitlines()
-    else:
-        raise Exception('malformed message: unsupported content-type')
-    result = ctx.op_verify_result()
-    if len(result.signatures) == 0:
-        raise Exception('malformed message: too few signatures')
-    if len(result.signatures) >= 2:
-        raise Exception('malformed message: too many signatures')
-    if result.signatures[0].status != 0:
-        raise Exception('invalid signature')
-    return (result.signatures[0].fpr, commands)
+    try:
+        tmpdir = tempfile.mkdtemp()
+        with open(os.path.join(tmpdir, 'gpg.conf'), 'w') as f:
+            f.write('no-default-keyring\n')
+            f.write('secret-keyring /dev/null\n')
+            f.write('trust-model always\n')
+            f.write('keyring /usr/share/keyrings/debian-keyring.gpg\n')
+        ctx = pyme.core.Context()
+        ctx.set_engine_info(0, '/usr/bin/gpg', tmpdir)
+        if message.get_content_type() == 'text/plain':
+            try: # normal signature (clearsign or sign & armor)
+                plaintext = pyme.core.Data() # output
+                signature = pyme.core.Data(message.get_payload())
+                ctx.op_verify(signature, None, plaintext)
+                plaintext.seek(0,0)
+            except Exception as err:
+                raise Exception('malformed text/plain message')
+            commands = plaintext.read().splitlines()
+        elif message.get_content_type() == 'multipart/signed':
+            try: # detached signature
+                signedtxt = pyme.core.Data(message.get_payload(0).as_string())
+                signature = pyme.core.Data(message.get_payload(1).as_string())
+                ctx.op_verify(signature, signedtxt, None)
+            except:
+                raise Exception('malformed multipart/signed message')
+            commands = message.get_payload(0).get_payload(decode=True).splitlines()
+        else:
+            raise Exception('malformed message: unsupported content-type')
+        result = ctx.op_verify_result()
+        if len(result.signatures) == 0:
+            raise Exception('malformed message: too few signatures')
+        if len(result.signatures) >= 2:
+            raise Exception('malformed message: too many signatures')
+        if result.signatures[0].status != 0:
+            raise Exception('invalid signature')
+        return (result.signatures[0].fpr, commands)
+    except Exception as err:
+        raise err
+    finally:
+        if tmpdir:
+            shutil.rmtree(tmpdir)
 
 def get_user_from_fingerprint(fingerprint):
     result = User.objects.filter(keyFingerPrint=fingerprint)
