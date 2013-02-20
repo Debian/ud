@@ -27,7 +27,7 @@ import sys
 import cStringIO
 
 from _handler import Handler
-from _utilities import verify_message, get_user_from_fingerprint
+from _utilities import load_configuration_file, verify_message, get_user_from_fingerprint
 
 class Command(BaseCommand):
     help = 'Processes commands received in GPG-signed emails.'
@@ -42,11 +42,20 @@ class Command(BaseCommand):
             default=False,
             help='do not commit changes'
         ),
+        optparse.make_option('--config',
+            action='store',
+            default='',
+            help='specify configuration file'
+        ),
     )
 
     def handle(self, *args, **options):
         self.options = options
         try:
+            if self.options['config']:
+                load_configuration_file(self.options['config'])
+            else:
+                raise CommandError('must specify configuration file')
             message = email.message_from_file(sys.stdin)
             (fingerprint, commands) = verify_message(message)
             user = get_user_from_fingerprint(fingerprint)
@@ -67,7 +76,7 @@ class Command(BaseCommand):
             raise CommandError(err)
 
     def generate_reply(self, message, result):
-        from_mailaddr = 'changes@db.debian.org'
+        from_mailaddr = 'ud@db.debian.org'
         if message.get('Reply-To'):
             to = message.get('Reply-To')
             (to_realname,to_mailaddr) = email.utils.parseaddr(to)

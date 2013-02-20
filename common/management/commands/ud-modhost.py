@@ -25,6 +25,7 @@ import optparse
 import os
 
 from _handler import Handler
+from _utilities import load_configuration_file
 
 class Command(BaseCommand):
     args = '<hid>'
@@ -35,11 +36,16 @@ class Command(BaseCommand):
             default='',
             help='specify bind dn'
         ),
-        optparse.make_option('-w', '--password',
+        optparse.make_option('-w', '--passwd',
             action='store',
             default='',
-            help='specify password'
+            help='specify passwd'
         ),
+        optparse.make_option('--config',
+            action='store',
+            default='/etc/ud/interactive.yaml',
+            help='specify configuration file'
+        ),  
     )
 
     def handle(self, *args, **options):
@@ -51,6 +57,7 @@ class Command(BaseCommand):
         else:
             raise CommandError('must specify at most one hid as argument')
 
+        load_configuration_file(options['config'])
         if not options['binddn']:
             options['binddn'] = getpass.getuser()
         if options['binddn'].endswith(User.base_dn):
@@ -60,15 +67,15 @@ class Command(BaseCommand):
             settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (options['binddn'], User.base_dn)
             logged_in_uid = options['binddn']
 
-        if not options['password']:
+        if not options['passwd']:
             try:
-                options['password'] = getpass.getpass()
+                options['passwd'] = getpass.getpass()
             except EOFError:
                 self.stdout.write('\n')
                 return
-        if not options['password']:
+        if not options['passwd']:
             raise CommandError('must specify password')
-        settings.DATABASES['ldap']['PASSWORD'] = options['password']
+        settings.DATABASES['ldap']['PASSWORD'] = options['passwd']
 
         try:
             logged_in_user = User.objects.get(uid=logged_in_uid)

@@ -24,7 +24,7 @@ import sys
 import time
 import yaml
 
-from _utilities import verify_message, get_user_from_fingerprint, get_user_from_headers
+from _utilities import load_configuration_file, verify_message, get_user_from_fingerprint, get_user_from_headers
 
 class Command(BaseCommand):
     help = 'Watches for email activity from Debian Developers.'
@@ -36,7 +36,7 @@ class Command(BaseCommand):
         ),
         optparse.make_option('--config',
             action='store',
-            default='',
+            default='/etc/ud/echelon.yaml',
             help='specify configuration file'
         ),
     )
@@ -44,21 +44,18 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.options = options
         try:
-            if self.options['config']:
-                config = yaml.load(open(self.options['config']))
-                if config.has_key('UD_USERNAME'):
-                    if config['UD_USERNAME'].endswith(User.base_dn):
-                        settings.DATABASES['ldap']['USER'] = config['UD_USERNAME']
-                    else:
-                        settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (config['UD_USERNAME'], User.base_dn)
+            load_configuration_file(self.options['config'])
+            if settings.config.has_key('username'):
+                if settings.config['username'].endswith(User.base_dn):
+                    settings.DATABASES['ldap']['USER'] = settings.config['username']
                 else:
-                    raise CommandError('config must have UD_USERNAME parameter')
-                if config.has_key('UD_PASSWORD'):
-                    settings.DATABASES['ldap']['PASSWORD'] = config['UD_PASSWORD']
-                else:
-                    raise CommandError('config must have UD_PASSWORD parameter')
+                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], User.base_dn)
             else:
-                raise CommandError('must specify --config file')
+                raise CommandError('configuration file must specify username parameter')
+            if settings.config.has_key('password'):
+                settings.DATABASES['ldap']['PASSWORD'] = settings.config['password']
+            else:
+                raise CommandError('configuration file must specify password parameter')
             message = email.message_from_file(sys.stdin)
             user = None
             key = ''

@@ -47,7 +47,7 @@ class Command(BaseCommand):
         ),
     )
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options): # TODO load_configuration_file
         self.options = options
         self.dstdir = os.path.join(settings.CACHE_DIR, 'hosts')
         self.tpldir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))

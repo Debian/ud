@@ -31,8 +31,10 @@ import os
 import pyme.core
 import pyparsing
 import re
+import shutil
 import struct
 import sys
+import tempfile
 import time
 
 from IPy import IP
@@ -224,16 +226,24 @@ def validate_jabberJID(val):
 
 def validate_keyFingerPrint(val):
     try:
+        tmpdir = tempfile.mkdtemp()
+        with open(os.path.join(tmpdir, 'gpg.conf'), 'w') as f:
+            f.write('no-default-keyring\n')
+            f.write('secret-keyring /dev/null\n')
+            f.write('trust-model always\n')
+            for keyring in settings.config['keyrings']:
+                f.write('keyring %s\n' % (keyring))
         ctx = pyme.core.Context()
+        ctx.set_engine_info(0, '/usr/bin/gpg', tmpdir)
         ctx.set_armor(True)
-        ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.CACHE_DIR, 'gnupg'))
         key = pyme.core.Data()
         ctx.op_export(val.encode('ascii'), 0, key)
         key.seek(0,0)
         if not key.read():
-            raise ValidationError('matching key not found in keyring')
-    except:
-        raise ValidationError('value is not valid for keyFingerPrint')
+            raise ValidationError('key fingerprint not found in keyring(s)')
+    finally:
+        if tmpdir:
+            shutil.rmtree(tmpdir)
 
 def validate_l(val): return # TODO
 
@@ -909,13 +919,28 @@ class User(ldapdb.models.Model):
     expire = property(_get_expire)
     
     def _get_key(self):
-        ctx = pyme.core.Context()
-        ctx.set_armor(True)
-        ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.CACHE_DIR, 'gnupg'))
-        key = pyme.core.Data()
-        ctx.op_export(self.keyFingerPrint.encode('ascii'), 0, key)
-        key.seek(0,0)
-        return key.read()
+        rval = ''
+        try:
+            tmpdir = tempfile.mkdtemp()
+            with open(os.path.join(tmpdir, 'gpg.conf'), 'w') as f:
+                f.write('no-default-keyring\n')
+                f.write('secret-keyring /dev/null\n')
+                f.write('trust-model always\n')
+                for keyring in settings.config['keyrings']:
+                    f.write('keyring %s\n' % (keyring))
+            ctx = pyme.core.Context()
+            ctx.set_engine_info(0, '/usr/bin/gpg', tmpdir)
+            ctx.set_armor(True)
+            key = pyme.core.Data()
+            ctx.op_export(self.keyFingerPrint.encode('ascii'), 0, key)
+            key.seek(0,0)
+            rval = key.read()
+        except Exception as err:
+            raise err
+        finally:
+            if tmpdir:
+                shutil.rmtree(tmpdir)
+        return rval
     key = property(_get_key)
 
     def _get_password(self):

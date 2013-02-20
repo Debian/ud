@@ -23,6 +23,8 @@ import optparse
 import SocketServer
 import yaml
 
+from _utilities import load_configuration_file
+
 class FingerServer(SocketServer.TCPServer):
     allow_reuse_address = True
 
@@ -77,34 +79,34 @@ class Command(BaseCommand):
         ),
         optparse.make_option('--config',
             action='store',
-            default='',
+            default='/etc/ud/fingerd.yaml',
             help='specify configuration file'
-        ),
+        ),  
     )
 
     def handle(self, *args, **options):
         self.options = options
-        if self.options['config']:
-            config = yaml.load(open(self.options['config']))
-            if config.has_key('UD_USERNAME'):
-                if config['UD_USERNAME'].endswith(User.base_dn):
-                    settings.DATABASES['ldap']['USER'] = config['UD_USERNAME']
+        try:
+            load_configuration_file(self.options['config'])
+            if settings.config.has_key('username'):
+                if settings.config['username'].endswith(User.base_dn):
+                    settings.DATABASES['ldap']['USER'] = settings.config['username']
                 else:
-                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (config['UD_USERNAME'], User.base_dn)
+                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], User.base_dn)
             else:
-                raise CommandError('config must have UD_USERNAME parameter')
-            if config.has_key('UD_PASSWORD'):
-                settings.DATABASES['ldap']['PASSWORD'] = config['UD_PASSWORD']
+                raise CommandError('configuration file must specify username parameter')
+            if settings.config.has_key('password'):
+                settings.DATABASES['ldap']['PASSWORD'] = settings.config['password']
             else:
-                raise CommandError('config must have UD_PASSWORD parameter')
-        else:
-            raise CommandError('must specify --config file')
-        server = FingerServer(('', 79), FingerHandler)
-        if options['foreground']:
-            server.serve_forever()
-        else:
-            with daemon.DaemonContext(): # TODO drop root
+                raise CommandError('configuration file must specify password parameter')
+            server = FingerServer(('', 79), FingerHandler)
+            if self.options['foreground']:
                 server.serve_forever()
+            else:
+                with daemon.DaemonContext(): # TODO drop root
+                    server.serve_forever()
+        except Exception as err:
+            raise CommandError(err)
 
 
 # vim: set ts=4 sw=4 et ai si sta:

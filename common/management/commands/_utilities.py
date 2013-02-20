@@ -25,6 +25,15 @@ import os
 import pyme.core
 import shutil
 import tempfile
+import yaml
+
+def load_configuration_file(filename):
+    try:
+        settings.config = yaml.load(open(filename))
+    except Exception as err:
+        raise Exception('could not load configuration file')
+    if not settings.config.has_key('keyrings'):
+        raise Exception('configuration file must specify keyrings parameter')
 
 def verify_message(message):
     if message.get('Reply-To'):
@@ -41,7 +50,8 @@ def verify_message(message):
             f.write('no-default-keyring\n')
             f.write('secret-keyring /dev/null\n')
             f.write('trust-model always\n')
-            f.write('keyring /usr/share/keyrings/debian-keyring.gpg\n')
+            for keyring in settings.config['keyrings']:
+                f.write('keyring %s\n' % (keyring))
         ctx = pyme.core.Context()
         ctx.set_engine_info(0, '/usr/bin/gpg', tmpdir)
         if message.get_content_type() == 'text/plain':

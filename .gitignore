@@ -1,5 +1,4 @@
 tmp/
-trustdb.gpg
-secrets.yaml
+*.yaml
 *.eml
 *.pyc

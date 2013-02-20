@@ -38,7 +38,7 @@ class Command(BaseCommand):
         ),
     )
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options): # TODO load_configuration_file
         self.options = options
 
         logged_in_uid = ''
