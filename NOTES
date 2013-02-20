@@ -1,17 +1,16 @@
 - runtime dependencies
   - ca-certificates
   - debian-keyring
-  - django
   - django-ldapdb [1]
   - openssh-blacklist
   - openssh-blacklist-extra
   - python-cdb
-  - python-dateutil
   - python-daemon
   - python-django
   - python-ipy
   - python-lockfile
   - python-lxml [2]
+  - python-m2crypto
   - python-mako
   - python-nameparser [3]
   - python-pycountry
@@ -68,6 +67,9 @@
   - improve permission system; move into models
   - add 'dirty' mixin
   - finish validators
+  - ud-echelon, ud-fingerd and ud-replicate need
+    better credential handling
+  - add gpg.conf to repo
 
 [1] http://opensource.bolloretelecom.eu/projects/django-ldapdb
 [2] http://bugs.debian.org/626395

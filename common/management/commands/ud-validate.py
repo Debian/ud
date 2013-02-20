@@ -16,32 +16,76 @@
 
 from django.core.management.base import BaseCommand, CommandError
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.conf import settings
 from common.models import Host, Group, User
 
+import getpass
 import optparse
 
 class Command(BaseCommand):
     args = '[uid uid ...]'
     help = 'Validates all or specified users against validation rules.'
+    option_list = BaseCommand.option_list + (
+        optparse.make_option('-D', '--binddn',
+            action='store',
+            default='',
+            help='specify bind dn'
+        ),
+        optparse.make_option('-w', '--password',
+            action='store',
+            default='',
+            help='specify password'
+        ),
+    )
 
     def handle(self, *args, **options):
         self.options = options
-        self.error = False
-        if args:
-            for uid in args:
-                try:
-                    user = User.objects.get(uid__exact=uid)
-                    self.validate_user(user)
-                except ObjectDoesNotExist:
-                    self.error = True
-                    if self.options['verbosity'] > '0':
-                        self.stdout.write('nak:%s:uid does not exist\n' % (uid))
+
+        logged_in_uid = ''
+
+        if not options['binddn']:
+            options['binddn'] = getpass.getuser()
+        if options['binddn'].endswith(User.base_dn):
+            settings.DATABASES['ldap']['USER'] = options['binddn']
+            logged_in_uid = options['binddn'].split(',')[0].split('=')[0]
         else:
-            users = User.objects.all()
-            for user in users:
-                self.validate_user(user)
-        if self.error:
-            raise CommandError('validation errors detected')
+            settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (options['binddn'], User.base_dn)
+            logged_in_uid = options['binddn']
+
+        if not options['password']:
+            try:
+                options['password'] = getpass.getpass()
+            except EOFError:
+                self.stdout.write('\n')
+                return
+        if not options['password']:
+            raise CommandError('must specify password')
+        settings.DATABASES['ldap']['PASSWORD'] = options['password']
+
+        try:
+            logged_in_user = User.objects.get(uid=logged_in_uid)
+            self.error = False
+            if args:
+                for looked_up_uid in args:
+                    try:
+                        looked_up_user = User.objects.get(uid__exact=looked_up_uid)
+                        self.validate_user(looked_up_user)
+                    except ObjectDoesNotExist:
+                        self.error = True
+                        if options['verbosity'] > '0':
+                            self.stdout.write('nak:%s:uid does not exist\n' % (uid))
+            else:
+                looked_up_users = User.objects.all()
+                for looked_up_user in looked_up_users:
+                    self.validate_user(looked_up_user)
+            if self.error:
+                raise CommandError('validation errors detected')
+        except ObjectDoesNotExist:
+            raise CommandError('user not found')
+        except ldap.INVALID_CREDENTIALS:
+            raise CommandError('invalid credentials')
+        except Exception as err:
+            raise CommandError(err)
 
     def validate_user(self, user):
         try:

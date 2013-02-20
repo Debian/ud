@@ -14,6 +14,7 @@
 #
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from common.models import User
 
@@ -21,6 +22,7 @@ import optparse
 import email
 import sys
 import time
+import yaml
 
 from _utilities import verify_message, get_user_from_fingerprint, get_user_from_headers
 
@@ -32,11 +34,31 @@ class Command(BaseCommand):
             default=False,
             help='do not commit changes'
         ),
+        optparse.make_option('--config',
+            action='store',
+            default='',
+            help='specify configuration file'
+        ),
     )
 
     def handle(self, *args, **options):
         self.options = options
         try:
+            if self.options['config']:
+                config = yaml.load(open(self.options['config']))
+                if config.has_key('UD_USERNAME'):
+                    if config['UD_USERNAME'].endswith(User.base_dn):
+                        settings.DATABASES['ldap']['USER'] = config['UD_USERNAME']
+                    else:
+                        settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (config['UD_USERNAME'], User.base_dn)
+                else:
+                    raise CommandError('config must have UD_USERNAME parameter')
+                if config.has_key('UD_PASSWORD'):
+                    settings.DATABASES['ldap']['PASSWORD'] = config['UD_PASSWORD']
+                else:
+                    raise CommandError('config must have UD_PASSWORD parameter')
+            else:
+                raise CommandError('must specify --config file')
             message = email.message_from_file(sys.stdin)
             user = None
             key = ''

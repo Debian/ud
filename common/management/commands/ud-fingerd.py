@@ -14,12 +14,14 @@
 #
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from common.models import User
 
 import daemon
 import optparse
 import SocketServer
+import yaml
 
 class FingerServer(SocketServer.TCPServer):
     allow_reuse_address = True
@@ -73,9 +75,30 @@ class Command(BaseCommand):
             default=False,
             help='run in the foreground'
         ),
+        optparse.make_option('--config',
+            action='store',
+            default='',
+            help='specify configuration file'
+        ),
     )
 
     def handle(self, *args, **options):
+        self.options = options
+        if self.options['config']:
+            config = yaml.load(open(self.options['config']))
+            if config.has_key('UD_USERNAME'):
+                if config['UD_USERNAME'].endswith(User.base_dn):
+                    settings.DATABASES['ldap']['USER'] = config['UD_USERNAME']
+                else:
+                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (config['UD_USERNAME'], User.base_dn)
+            else:
+                raise CommandError('config must have UD_USERNAME parameter')
+            if config.has_key('UD_PASSWORD'):
+                settings.DATABASES['ldap']['PASSWORD'] = config['UD_PASSWORD']
+            else:
+                raise CommandError('config must have UD_PASSWORD parameter')
+        else:
+            raise CommandError('must specify --config file')
         server = FingerServer(('', 79), FingerHandler)
         if options['foreground']:
             server.serve_forever()

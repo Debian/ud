@@ -1,17 +1,19 @@
+PROJECT_DIR=../../../..
+
 .PHONY: all
 all: echelon-encrypted echelon-plaintext mailgate
 
 .PHONY: echelon-encrypted
 echelon-encrypted: encrypted.eml
-	cat $< | ../../../../manage ud-echelon --dryrun
+	cat $< | $(PROJECT_DIR)/manage ud-echelon --config secrets.yaml --dryrun
 
 .PHONY: echelon-plaintext
 echelon-plaintext: plaintext.eml
-	cat $< | ../../../../manage ud-echelon --dryrun
+	cat $< | $(PROJECT_DIR)/manage ud-echelon --config secrets.yaml --dryrun
 
 .PHONY: mailgate
 mailgate: encrypted.eml
-	cat $< | ../../../../manage ud-mailgate --dryrun --console
+	cat $< | $(PROJECT_DIR)/manage ud-mailgate --dryrun --console
 
 .PHONY: clean
 clean:

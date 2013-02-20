@@ -14,12 +14,14 @@
 #
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
+from django.conf import settings
 from common.models import User
 
 import optparse
 import email
 import email.utils
 import nameparser
+import os
 import pyme.constants.sigsum
 import pyme.core
 
@@ -33,6 +35,7 @@ def verify_message(message):
         if not y:
             raise Exception('malformed message: bad From header')
     ctx = pyme.core.Context()
+    ctx.set_engine_info(0, '/usr/bin/gpg', os.path.join(settings.PROJECT_DIR))
     if message.get_content_type() == 'text/plain':
         try: # normal signature (clearsign or sign & armor)
             plaintext = pyme.core.Data() # output

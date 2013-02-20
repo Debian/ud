@@ -1,4 +1,4 @@
 tmp/
-secrets.py
+secrets.yaml
 *.eml
 *.pyc
