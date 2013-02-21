@@ -102,9 +102,10 @@ class Command(BaseCommand):
         msg['Subject'] = 'ud-mailgate processing results'
         msg['Content-Disposition'] = 'inline'
         part1 = MIMEApplication(_data='Version: 1\n', _subtype='pgp-encrypted', _encoder=encode_7or8bit)
+        part1['Content-Disposition'] = 'attachment'
         msg.attach(part1)
         part2 = MIMEApplication(_data=result, _subtype='octet-stream', _encoder=encode_7or8bit)
-        part2.set_charset('us-ascii')
+        part2['Content-Disposition'] = 'inline; filename="msg.asc"'
         msg.attach(part2)
         if self.options['console']:
             self.stdout.write(msg.as_string() + '\n')
