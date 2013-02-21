@@ -74,6 +74,7 @@ class Command(BaseCommand):
             (fingerprint, commands) = verify_message(message)
             user = get_user_from_fingerprint(fingerprint)
             fd = cStringIO.StringIO()
+            fd.write('\n===== start of processing =====\n')
             handler = Handler(fd, user, user)
             for command in commands:
                 if command == '-- ':
@@ -81,46 +82,50 @@ class Command(BaseCommand):
                 fd.write('> %s\n' % (command))
                 handler.onecmd(command)
             if self.options['dryrun']:
-                fd.write('==> dryrun: no changes saved')
+                fd.write('==> dryrun: no changes saved\n')
             else:
                 if handler.has_errors:
-                    fd.write('==> errors: no changes saved')
+                    fd.write('==> errors: no changes saved\n')
                 else:
                     user.save()
+            fd.write('===== end of processing =====\n')
             self.generate_reply(message, encrypt_result(fd.getvalue(), fingerprint))
         except Exception as err:
             raise CommandError(err)
 
     def generate_reply(self, message, result):
-        from_mailaddr = 'ud@db.debian.org'
-        if message.get('Reply-To'):
-            to = message.get('Reply-To')
-            (to_realname,to_mailaddr) = email.utils.parseaddr(to)
-        elif message.get('From'):
-            to = message.get('From')
-            (to_realname,to_mailaddr) = email.utils.parseaddr(to)
-        msg = MIMEMultipart('encrypted', protocol='application/pgp-encrypted')
-        msg['From'] = from_mailaddr
-        msg['To'] = to
-        msg['Subject'] = 'ud-mailgate processing results'
-        msg['Message-Id'] = make_msgid()
-        msg['Date'] = formatdate(localtime=True)
-        msg['Content-Disposition'] = 'inline'
-        part1 = MIMEApplication(_data='Version: 1\n', _subtype='pgp-encrypted', _encoder=encode_7or8bit)
-        part1['Content-Disposition'] = 'attachment'
-        msg.attach(part1)
-        part2 = MIMEApplication(_data=result, _subtype='octet-stream', _encoder=encode_7or8bit)
-        part2['Content-Disposition'] = 'inline; filename="msg.asc"'
-        msg.attach(part2)
-        fd = cStringIO.StringIO()
-        g = Generator(fd, mangle_from_=False)
-        g.flatten(msg)
-        if self.options['console']:
-            self.stdout.write(fd.getvalue() + '\n')
-        else:
-            s = smtplib.SMTP('localhost')
-            s.sendmail(from_mailaddr, to_mailaddr, fd.getvalue())
-            s.quit()
+        try:
+            from_mailaddr = 'ud@db.debian.org'
+            if message.get('Reply-To'):
+                to = message.get('Reply-To')
+                (to_realname,to_mailaddr) = email.utils.parseaddr(to)
+            elif message.get('From'):
+                to = message.get('From')
+                (to_realname,to_mailaddr) = email.utils.parseaddr(to)
+            msg = MIMEMultipart('encrypted', protocol='application/pgp-encrypted')
+            msg['From'] = from_mailaddr
+            msg['To'] = to
+            msg['Subject'] = 'ud-mailgate processing results'
+            msg['Message-Id'] = make_msgid()
+            msg['Date'] = formatdate(localtime=True)
+            msg['Content-Disposition'] = 'inline'
+            part1 = MIMEApplication(_data='Version: 1\n', _subtype='pgp-encrypted', _encoder=encode_7or8bit)
+            part1['Content-Disposition'] = 'attachment'
+            msg.attach(part1)
+            part2 = MIMEApplication(_data=result, _subtype='octet-stream', _encoder=encode_7or8bit)
+            part2['Content-Disposition'] = 'inline; filename="msg.asc"'
+            msg.attach(part2)
+            fd = cStringIO.StringIO()
+            g = Generator(fd, mangle_from_=False)
+            g.flatten(msg)
+            if self.options['console']:
+                self.stdout.write(fd.getvalue() + '\n')
+            else:
+                s = smtplib.SMTP('localhost')
+                s.sendmail(from_mailaddr, to_mailaddr, fd.getvalue())
+                s.quit()
+        except Exception as err:
+            raise CommandError(errO)
 
 
 # vim: set ts=4 sw=4 et ai si sta:

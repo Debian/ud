@@ -55,6 +55,9 @@ def encrypt_result(result, fingerprint):
         return encrypted.read()
     except Exception as err:
         raise err
+    finally:
+        if tmpdir:
+            shutil.rmtree(tmpdir)
 
 def verify_message(message):
     if message.get('Reply-To'):
