@@ -74,7 +74,6 @@ def verify_message(message):
         else:
             raise Exception('malformed message: unsupported content-type')
         result = ctx.op_verify_result()
-        print result.signatures[0].validity
         if len(result.signatures) == 0:
             raise Exception('malformed message: too few signatures')
         if len(result.signatures) >= 2:
