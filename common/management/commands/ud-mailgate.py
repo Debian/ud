@@ -20,7 +20,9 @@ from common.models import User
 
 import optparse
 import email
-import email.mime.text
+from email.encoders import encode_7or8bit
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
 import email.utils
 import smtplib
 import sys
@@ -94,10 +96,16 @@ class Command(BaseCommand):
         elif message.get('From'):
             to = message.get('From')
             (to_realname,to_mailaddr) = email.utils.parseaddr(to)
-        msg = email.mime.text.MIMEText(result)
+        msg = MIMEMultipart('encrypted', protocol='application/pgp-encrypted')
         msg['From'] = from_mailaddr
         msg['To'] = to
         msg['Subject'] = 'ud-mailgate processing results'
+        msg['Content-Disposition'] = 'inline'
+        part1 = MIMEApplication(_data='Version: 1\n', _subtype='pgp-encrypted', _encoder=encode_7or8bit)
+        msg.attach(part1)
+        part2 = MIMEApplication(_data=result, _subtype='octet-stream', _encoder=encode_7or8bit)
+        part2.set_charset('us-ascii')
+        msg.attach(part2)
         if self.options['console']:
             self.stdout.write(msg.as_string() + '\n')
         else:
