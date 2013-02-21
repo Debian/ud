@@ -35,6 +35,27 @@ def load_configuration_file(filename):
     if not settings.config.has_key('keyrings'):
         raise Exception('configuration file must specify keyrings parameter')
 
+def encrypt_result(result, fingerprint):
+    try:
+        tmpdir = tempfile.mkdtemp()
+        with open(os.path.join(tmpdir, 'gpg.conf'), 'w') as f:
+            f.write('no-default-keyring\n')
+            f.write('secret-keyring /dev/null\n')
+            f.write('trust-model always\n')
+            for keyring in settings.config['keyrings']:
+                f.write('keyring %s\n' % (keyring))
+        ctx = pyme.core.Context()
+        ctx.set_engine_info(0, '/usr/bin/gpg', tmpdir)
+        ctx.set_armor(True)
+        recipient = ctx.get_key(fingerprint, 0)
+        plaintext = pyme.core.Data(result)
+        encrypted = pyme.core.Data()
+        ctx.op_encrypt([recipient], True, plaintext, encrypted)
+        encrypted.seek(0,0)
+        return encrypted.read()
+    except Exception as err:
+        raise err
+
 def verify_message(message):
     if message.get('Reply-To'):
         (x,y) = email.utils.parseaddr(message.get('Reply-To'))

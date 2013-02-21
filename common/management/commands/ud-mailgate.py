@@ -28,7 +28,7 @@ import sys
 import cStringIO
 
 from _handler import Handler
-from _utilities import load_configuration_file, verify_message, get_user_from_fingerprint
+from _utilities import load_configuration_file, verify_message, get_user_from_fingerprint, encrypt_result
 
 class Command(BaseCommand):
     help = 'Processes commands received in GPG-signed emails.'
@@ -82,7 +82,7 @@ class Command(BaseCommand):
                     fd.write('==> errors: no changes saved')
                 else:
                     user.save()
-            self.generate_reply(message, fd.getvalue())
+            self.generate_reply(message, encrypt_result(fd.getvalue(), fingerprint))
         except Exception as err:
             raise CommandError(err)
 
