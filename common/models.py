@@ -235,11 +235,13 @@ def validate_keyFingerPrint(val):
                 f.write('keyring %s\n' % (keyring))
         ctx = pyme.core.Context()
         ctx.set_engine_info(0, '/usr/bin/gpg', tmpdir)
-        ctx.set_armor(True)
-        key = pyme.core.Data()
-        ctx.op_export(val.encode('ascii'), 0, key)
-        key.seek(0,0)
-        if not key.read():
+        try:
+            fpr = val.encode('ascii')
+            if fpr != ctx.get_key(fpr, 0).subkeys[0].fpr:
+                raise ValidationError('key fingerprint is not for primary key')
+        except ValidationError:
+            raise
+        except Exception as err:
             raise ValidationError('key fingerprint not found in keyring(s)')
     finally:
         if tmpdir:

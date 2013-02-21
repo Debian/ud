@@ -74,13 +74,15 @@ def verify_message(message):
         else:
             raise Exception('malformed message: unsupported content-type')
         result = ctx.op_verify_result()
+        print result.signatures[0].validity
         if len(result.signatures) == 0:
             raise Exception('malformed message: too few signatures')
         if len(result.signatures) >= 2:
             raise Exception('malformed message: too many signatures')
         if result.signatures[0].status != 0:
             raise Exception('invalid signature')
-        return (result.signatures[0].fpr, commands)
+        fingerprint = ctx.get_key(result.signatures[0].fpr, 0).subkeys[0].fpr
+        return (fingerprint, commands)
     except Exception as err:
         raise err
     finally:
