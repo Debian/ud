@@ -71,6 +71,8 @@ class Command(BaseCommand):
             fd = cStringIO.StringIO()
             handler = Handler(fd, user, user)
             for command in commands:
+                if command == '-- ':
+                    break
                 fd.write('> %s\n' % (command))
                 handler.onecmd(command)
             if self.options['dryrun']:
