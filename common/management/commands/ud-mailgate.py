@@ -15,6 +15,7 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
+from django.conf import settings
 from common.models import User
 
 import optparse
@@ -53,6 +54,17 @@ class Command(BaseCommand):
         self.options = options
         try:
             load_configuration_file(self.options['config'])
+            if settings.config.has_key('username'):
+                if settings.config['username'].endswith(User.base_dn):
+                    settings.DATABASES['ldap']['USER'] = settings.config['username']
+                else:
+                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], User.base_dn)
+            else:
+                raise CommandError('configuration file must specify username parameter')
+            if settings.config.has_key('password'):
+                settings.DATABASES['ldap']['PASSWORD'] = settings.config['password']
+            else:
+                raise CommandError('configuration file must specify password parameter')
             message = email.message_from_file(sys.stdin)
             (fingerprint, commands) = verify_message(message)
             user = get_user_from_fingerprint(fingerprint)
