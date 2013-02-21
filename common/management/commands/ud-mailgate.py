@@ -21,8 +21,11 @@ from common.models import User
 import optparse
 import email
 from email.encoders import encode_7or8bit
+from email.generator import Generator
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
+from email.utils import make_msgid
+from email.utils import formatdate
 import email.utils
 import smtplib
 import sys
@@ -100,6 +103,8 @@ class Command(BaseCommand):
         msg['From'] = from_mailaddr
         msg['To'] = to
         msg['Subject'] = 'ud-mailgate processing results'
+        msg['Message-Id'] = make_msgid()
+        msg['Date'] = formatdate(localtime=True)
         msg['Content-Disposition'] = 'inline'
         part1 = MIMEApplication(_data='Version: 1\n', _subtype='pgp-encrypted', _encoder=encode_7or8bit)
         part1['Content-Disposition'] = 'attachment'
@@ -107,11 +112,14 @@ class Command(BaseCommand):
         part2 = MIMEApplication(_data=result, _subtype='octet-stream', _encoder=encode_7or8bit)
         part2['Content-Disposition'] = 'inline; filename="msg.asc"'
         msg.attach(part2)
+        fd = cStringIO.StringIO()
+        g = Generator(fd, mangle_from_=False)
+        g.flatten(msg)
         if self.options['console']:
-            self.stdout.write(msg.as_string() + '\n')
+            self.stdout.write(fd.getvalue() + '\n')
         else:
             s = smtplib.SMTP('localhost')
-            s.sendmail(from_mailaddr, to_mailaddr, msg.as_string())
+            s.sendmail(from_mailaddr, to_mailaddr, fd.getvalue())
             s.quit()
 
 
