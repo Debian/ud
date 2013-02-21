@@ -27,6 +27,12 @@ import shutil
 import tempfile
 import yaml
 
+def to_ascii(obj, encoding='utf-8'):
+    if isinstance(obj, basestring):
+        if isinstance(obj, unicode):
+            obj = obj.encode('ascii', 'ignore')
+    return obj
+
 def load_configuration_file(filename):
     try:
         settings.config = yaml.load(open(filename))

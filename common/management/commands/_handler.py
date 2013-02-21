@@ -18,6 +18,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from ldapdb.models.fields import CharField, IntegerField, ListField
 
+from _utilities import to_ascii
+
 import cmd
 
 class Handler(cmd.Cmd):
@@ -120,9 +122,9 @@ class Handler(cmd.Cmd):
             if type(values) is not list:
                 values = [values]
             if values:
-                self.fd.write('%s %s %s\n' % (field.name.rjust(self.pad), delim, values[0]))
+                self.fd.write('%s %s %s\n' % (field.name.rjust(self.pad), delim, to_ascii(values[0])))
                 for value in values[1:]:
-                    self.fd.write('%s %s\n' % (' ' * (self.pad+len(delim)+1), value))
+                    self.fd.write('%s %s\n' % (' ' * (self.pad+len(delim)+1), to_ascii(value)))
             else:
                 self.fd.write('%s %s\n' % (field.name.rjust(self.pad), delim))
 
