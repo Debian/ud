@@ -27,10 +27,11 @@ from email.mime.multipart import MIMEMultipart
 from email.utils import make_msgid
 from email.utils import formatdate
 import email.utils
+import io
 import smtplib
 import sys
 
-import cStringIO
+import StringIO
 
 from _handler import Handler
 from _utilities import load_configuration_file, verify_message, get_user_from_fingerprint, encrypt_result
@@ -73,23 +74,23 @@ class Command(BaseCommand):
             message = email.message_from_file(sys.stdin)
             (fingerprint, commands) = verify_message(message)
             user = get_user_from_fingerprint(fingerprint)
-            fd = cStringIO.StringIO()
-            fd.write('\n===== start of processing =====\n')
+            fd = io.StringIO(encoding='utf-8')
+            fd.write(u'\n===== start of processing =====\n')
             handler = Handler(fd, user, user)
             for command in commands:
                 if command == '-- ':
                     break
-                fd.write('> %s\n' % (command))
+                fd.write(u'> %s\n' % (command))
                 handler.onecmd(command)
             if self.options['dryrun']:
-                fd.write('==> dryrun: no changes saved\n')
+                fd.write(u'==> dryrun: no changes saved\n')
             else:
                 if handler.has_errors:
-                    fd.write('==> errors: no changes saved\n')
+                    fd.write(u'==> errors: no changes saved\n')
                 else:
                     user.save()
-            fd.write('===== end of processing =====\n')
-            self.generate_reply(message, encrypt_result(fd.getvalue(), fingerprint))
+            fd.write(u'===== end of processing =====\n')
+            self.generate_reply(message, encrypt_result(fd.getvalue().encode('utf-8'), fingerprint))
         except Exception as err:
             raise CommandError(err)
 
@@ -115,7 +116,7 @@ class Command(BaseCommand):
             part2 = MIMEApplication(_data=result, _subtype='octet-stream', _encoder=encode_7or8bit)
             part2['Content-Disposition'] = 'inline; filename="msg.asc"'
             msg.attach(part2)
-            fd = cStringIO.StringIO()
+            fd = StringIO.StringIO()
             g = Generator(fd, mangle_from_=False)
             g.flatten(msg)
             if self.options['console']:
@@ -125,7 +126,7 @@ class Command(BaseCommand):
                 s.sendmail(from_mailaddr, to_mailaddr, fd.getvalue())
                 s.quit()
         except Exception as err:
-            raise CommandError(errO)
+            raise CommandError(err)
 
 
 # vim: set ts=4 sw=4 et ai si sta:

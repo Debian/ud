@@ -18,9 +18,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from ldapdb.models.fields import CharField, IntegerField, ListField
 
-from _utilities import encode
-
 import cmd
+import io
 
 class Handler(cmd.Cmd):
     def __init__(self, fd, entry, operator):
@@ -31,6 +30,12 @@ class Handler(cmd.Cmd):
         self.dirty = set() # TODO add to model (mixin)
         self.pad = max([len(x.name) for x in self.entry._meta.fields])
         self.has_errors = False
+
+    def write(self, line):
+        if type(self.fd) is io.StringIO:
+            self.fd.write(line)
+        else:
+            self.fd.write(line.encode('utf-8'))
 
     def do_EOF(self, line):
         """exit from the command loop on CTRL^D"""
@@ -46,24 +51,24 @@ class Handler(cmd.Cmd):
             field = self.entry._meta.get_field(key)
             if 'adm' in self.operator.supplementaryGid:
                 if field.permissions['root'] is not 'write':
-                    self.fd.write('nak: insufficient privileges\n')
+                    self.write(u'nak: insufficient privileges\n')
                     return
             else:
                 if field.permissions['self'] is not 'write':
-                    self.fd.write('nak: insufficient privileges\n')
+                    self.write(u'nak: insufficient privileges\n')
                     return
             self.entry.do_delete(key, val)
             self.dirty.add(key)
             if val:
-                self.fd.write('ack: delete %s -> %s\n' % (key, val))
+                self.write(u'ack: delete %s -> %s\n' % (key, val))
             else:
-                self.fd.write('ack: delete %s\n' % (key))
+                self.write(u'ack: delete %s\n' % (key))
         except ValidationError as err:
             for message in err.messages:
-                self.fd.write('nak: %s\n' % (message))
+                self.write(u'nak: %s\n' % (message))
                 self.has_errors = True
         except Exception as err:
-            self.fd.write('nak: %s\n' % (err))
+            self.write(u'nak: %s\n' % (err))
             self.has_errors = True
 
     def do_discard(self, line):
@@ -71,9 +76,9 @@ class Handler(cmd.Cmd):
         if self.dirty:
             self.entry = self.entry.__class__._default_manager.get(pk=self.entry.pk)
             self.dirty.clear()
-            self.fd.write('ack: local modifications discarded\n')
+            self.write(u'ack: local modifications discarded\n')
         else:
-            self.fd.write('ack: no local modifications to discard\n')
+            self.write(u'ack: no local modifications to discard\n')
 
     def do_exit(self, line):
         """exit from the command loop"""
@@ -86,7 +91,7 @@ class Handler(cmd.Cmd):
     def do_history(self, line):
         """display history of commands"""
         for entry in self.history:
-            self.fd.write(entry + '\n')
+            self.write(u'%s\n' % (entry))
 
     def do_save(self, line):
         """save local modifications"""
@@ -94,9 +99,9 @@ class Handler(cmd.Cmd):
             self.entry.save()
             self.entry = self.entry.__class__._default_manager.get(pk=self.entry.pk)
             self.dirty.clear()
-            self.fd.write('ack: local modifications saved\n')
+            self.write(u'ack: local modifications saved\n')
         else:
-            self.fd.write('ack: no local modifications to save\n')
+            self.write(u'ack: no local modifications to save\n')
 
     def do_show(self, line):
         """show current attributes (flag local modifications with **)"""
@@ -122,11 +127,11 @@ class Handler(cmd.Cmd):
             if type(values) is not list:
                 values = [values]
             if values:
-                self.fd.write('%s %s %s\n' % (field.name.rjust(self.pad), delim, encode(values[0])))
+                self.write(u'%s %s %s\n' % (field.name.rjust(self.pad), delim, values[0]))
                 for value in values[1:]:
-                    self.fd.write('%s %s\n' % (' ' * (self.pad+len(delim)+1), encode(value)))
+                    self.write(u'%s %s\n' % (' ' * (self.pad+len(delim)+1), value))
             else:
-                self.fd.write('%s %s\n' % (field.name.rjust(self.pad), delim))
+                self.write(u'%s %s\n' % (field.name.rjust(self.pad), delim))
 
     def do_switch(self, line):
         """switch to a different entry"""
@@ -138,11 +143,11 @@ class Handler(cmd.Cmd):
                 entry = self.entry.__class__._default_manager.get(pk=line)
                 self.entry = entry
                 self.dirty.clear()
-                self.fd.write('ack: switched entry\n')
+                self.write(u'ack: switched entry\n')
             except ObjectDoesNotExist:
-                self.fd.write('nak: unable to switch entry\n')
+                self.write(u'nak: unable to switch entry\n')
         else:
-            self.fd.write('nak: insufficient privileges\n')
+            self.write(u'nak: insufficient privileges\n')
 
     def do_update(self, line):
         """update a specific attribute: update <key> <val>"""
@@ -153,31 +158,31 @@ class Handler(cmd.Cmd):
                 # TODO move permission check into model?
                 if 'adm' in self.operator.supplementaryGid:
                     if field.permissions['root'] is not 'write':
-                        self.fd.write('nak: insufficient privileges\n')
+                        self.write(u'nak: insufficient privileges\n')
                         return
                 else:
                     if field.permissions['self'] is not 'write':
-                        self.fd.write('nak: insufficient privileges\n')
+                        self.write(u'nak: insufficient privileges\n')
                         return
                 self.entry.do_update(key, val)
                 self.dirty.add(key)
-                self.fd.write('ack: update %s <- %s\n' % (key, val))
+                self.write(u'ack: update %s <- %s\n' % (key, val))
         except ValidationError as err:
             for message in err.messages:
-                self.fd.write('nak: %s\n' % (message))
+                self.write(u'nak: %s\n' % (message))
                 self.has_errors = True
         except Exception as err:
-            self.fd.write('nak: %s\n' % (err))
+            self.write(u'nak: %s\n' % (err))
             self.has_errors = True
 
     def do_validate(self, line):
         """validate all attributes"""
         try:
             self.entry.validate()
-            self.fd.write('ack: no validation errors\n')
+            self.write(u'ack: no validation errors\n')
         except ValidationError as err:
             for message in err.messages:
-                self.fd.write('nak: %s\n' % (message))
+                self.write(u'nak: %s\n' % (message))
                 self.has_errors = True
             pass
 
@@ -191,7 +196,7 @@ class Handler(cmd.Cmd):
     prompt = property(_get_prompt)
 
     def default(self, line):
-        self.fd.write('nak: unknown command\n')
+        self.write(u'nak: unknown command\n')
         self.has_errors = True
 
     def emptyline(self):
