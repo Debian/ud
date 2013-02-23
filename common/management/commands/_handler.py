@@ -108,7 +108,7 @@ class Handler(cmd.Cmd):
         for field in self.entry._meta.fields:
             if field.name is 'dn':
                 continue
-            # TODO move permission chck into model?
+            # TODO move permission check into model?
             if 'adm' in self.operator.supplementaryGid:
                 if field.permissions['root'] is 'none':
                     continue

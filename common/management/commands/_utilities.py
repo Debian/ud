@@ -15,6 +15,7 @@
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.conf import settings
+from django.core.management.base import CommandError
 from common.models import User
 
 import email
@@ -26,12 +27,6 @@ import pyme.core
 import shutil
 import tempfile
 import yaml
-
-def encode(obj, encoding='utf-8'):
-    if isinstance(obj, basestring):
-        if isinstance(obj, unicode):
-            obj = obj.encode(encoding, 'ignore')
-    return obj
 
 def load_configuration_file(filename):
     try:
@@ -119,12 +114,13 @@ def verify_message(message):
             shutil.rmtree(tmpdir)
 
 def get_user_from_fingerprint(fingerprint):
-    result = User.objects.filter(keyFingerPrint=fingerprint)
-    if len(result) == 0:
-        raise Exception('too few user objects found')
-    if len(result) >= 2:
-        raise Exception('too many user objects found')
-    return result[0]
+    try:
+        result = User.objects.filter(keyFingerPrint=fingerprint)
+        if len(result) == 1
+            return result[0]
+    except:
+        pass
+    return None
 
 def get_user_from_headers(message):
     try:
@@ -141,15 +137,18 @@ def get_user_from_headers(message):
                     uid = y.split('@')[0]
         if emailForward:
             result = User.objects.filter(emailForward=emailForward)
-            if len(result) == 1: return result[0]
+            if len(result) == 1:
+                return result[0]
         if humanName:
             result = User.objects.filter(cn=humanName.first,sn=humanName.last)
-            if len(result) == 1: return result[0]
+            if len(result) == 1:
+                return result[0]
         if uid:
             result = User.objects.filter(uid=uid)
-            if len(result) == 1: return result[0]
+            if len(result) == 1:
+                return result[0]
     except:
         pass
-    raise Exception('could not find user')
+    return None
 
 # vim: set ts=4 sw=4 et ai si sta:

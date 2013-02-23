@@ -14,12 +14,12 @@
 #
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
-from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
 from common.models import Host, Group, User
-from mako.template import Template
 from mako.lookup import TemplateLookup
+from mako.template import Template
 
 import cdb
 import errno
@@ -29,14 +29,14 @@ import ldap
 import lockfile
 import optparse
 import os
-import time
 import posix
 import tarfile
 import time
 import yaml
 
-from cStringIO import StringIO
+from StringIO import StringIO
 
+# TODO check unicode handling
 class Command(BaseCommand):
     help = 'Generates, on a host-by-host basis, the set of files to be replicated.'
     option_list = BaseCommand.option_list + (
@@ -161,10 +161,10 @@ class Command(BaseCommand):
         self.generate_tpl_file(dstdir, 'web-passwords', users=self.users)
         self.generate_tpl_file(dstdir, 'voip-passwords', users=self.users)
         self.generate_tpl_file(dstdir, 'forward-alias', users=self.users)
-        self.generate_tpl_file(dstdir, 'markers', users=self.users)                             # FIXME double check user filter
+        self.generate_tpl_file(dstdir, 'markers', users=self.users)     # FIXME double check user filter
         self.generate_tpl_file(dstdir, 'ssh_known_hosts', hosts=self.hosts)
         self.generate_tpl_file(dstdir, 'debianhosts', hosts=self.hosts)
-        self.generate_tpl_file(dstdir, 'dns-zone', users=self.users)                            # FIXME double check user filter
+        self.generate_tpl_file(dstdir, 'dns-zone', users=self.users)    # FIXME double check user filter
         self.generate_tpl_file(dstdir, 'dns-sshfp', hosts=self.hosts)
         with open(os.path.join(dstdir, 'all-accounts.json'), 'w') as f:
             data = list()
@@ -205,7 +205,7 @@ class Command(BaseCommand):
         self.link(self.dstdir, dstdir, 'voip-passwords', ('VOIP-PASSWORDS' in host.exportOptions))
         self.link(self.dstdir, dstdir, 'forward-alias')
         self.link(self.dstdir, dstdir, 'markers', ('NOMARKERS' not in host.exportOptions))
-        self.link(self.dstdir, dstdir, 'ssh_known_hosts')                                       # FIXME handle purpose
+        self.link(self.dstdir, dstdir, 'ssh_known_hosts')               # FIXME handle purpose
         self.link(self.dstdir, dstdir, 'debianhosts')
         self.link(self.dstdir, dstdir, 'dns-zone', ('DNS' in host.exportOptions))
         self.link(self.dstdir, dstdir, 'dns-sshfp', ('DNS' in host.exportOptions))
@@ -215,7 +215,7 @@ class Command(BaseCommand):
         tf = tarfile.open(name=os.path.join(self.dstdir, host.hostname, 'ssh-keys.tar.gz'), mode='w:gz')
         for user in host.users:
             to = tarfile.TarInfo(name=user.uid)
-            contents = '\n'.join(user.sshRSAAuthKey) + '\n'                                     # FIXME handle allowed_hosts
+            contents = '\n'.join(user.sshRSAAuthKey) + '\n'             # FIXME handle allowed_hosts
             to.uid = 0
             to.gid = 65534
             to.uname = user.uid # XXX the magic happens here
@@ -254,7 +254,7 @@ class Command(BaseCommand):
             fn = os.path.join(dstdir, filename).encode('ascii', 'ignore')
             maker = cdb.cdbmake(fn, fn + '.tmp')
             for user in users:
-                if user.is_not_retired():                           # FIXME really?
+                if user.is_not_retired():                               # FIXME really?
                     val = getattr(user, key)
                     if val:
                         maker.add(user.uid, val)

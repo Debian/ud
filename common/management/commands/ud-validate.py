@@ -14,14 +14,15 @@
 #
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
-from django.core.management.base import BaseCommand, CommandError
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.management.base import BaseCommand, CommandError
 from common.models import Host, Group, User
 
 import getpass
 import optparse
 
+# TODO check unicode handling
 class Command(BaseCommand):
     args = '[uid uid ...]'
     help = 'Validates all or specified users against validation rules.'
@@ -31,17 +32,27 @@ class Command(BaseCommand):
             default='',
             help='specify bind dn'
         ),
-        optparse.make_option('-w', '--password',
+        optparse.make_option('-w', '--passwd',
             action='store',
             default='',
-            help='specify password'
+            help='specify passwd'
+        ),
+        optparse.make_option('--config',
+            action='store',
+            default='/etc/ud/interactive.yaml',
+            help='specify configuration file'
         ),
     )
 
-    def handle(self, *args, **options): # TODO load_configuration_file
+    def handle(self, *args, **options):
         self.options = options
 
         logged_in_uid = ''
+
+        try:
+            load_configuration_file(options['config'])
+        except Exception as err:
+            raise CommandError(err)
 
         if not options['binddn']:
             options['binddn'] = getpass.getuser()
@@ -52,15 +63,15 @@ class Command(BaseCommand):
             settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (options['binddn'], User.base_dn)
             logged_in_uid = options['binddn']
 
-        if not options['password']:
+        if not options['passwd']:
             try:
-                options['password'] = getpass.getpass()
+                options['passwd'] = getpass.getpass()
             except EOFError:
                 self.stdout.write('\n')
                 return
-        if not options['password']:
+        if not options['passwd']:
             raise CommandError('must specify password')
-        settings.DATABASES['ldap']['PASSWORD'] = options['password']
+        settings.DATABASES['ldap']['PASSWORD'] = options['passwd']
 
         try:
             logged_in_user = User.objects.get(uid=logged_in_uid)

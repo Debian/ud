@@ -14,9 +14,9 @@
 #
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
-from django.core.management.base import BaseCommand, CommandError
-from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
+from django.core.management.base import BaseCommand, CommandError
 from common.models import User
 
 import getpass
@@ -59,7 +59,11 @@ class Command(BaseCommand):
         else:
             raise CommandError('must specify at most one uid as argument')
 
-        load_configuration_file(options['config'])
+        try:
+            load_configuration_file(options['config'])
+        except Exception as err:
+            raise CommandError(err)
+
         if not options['binddn']:
             options['binddn'] = getpass.getuser()
         if options['binddn'].endswith(User.base_dn):

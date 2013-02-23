@@ -14,24 +14,25 @@
 #
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
 
-from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from common.models import User
 
 import optparse
 import email
-from email.encoders import encode_7or8bit
-from email.generator import Generator
-from email.mime.application import MIMEApplication
-from email.mime.multipart import MIMEMultipart
-from email.utils import make_msgid
-from email.utils import formatdate
 import email.utils
 import io
 import smtplib
 import sys
 
 import StringIO
+
+from email.encoders import encode_7or8bit
+from email.generator import Generator
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.utils import make_msgid
+from email.utils import formatdate
 
 from _handler import Handler
 from _utilities import load_configuration_file, verify_message, get_user_from_fingerprint, encrypt_result
@@ -108,6 +109,7 @@ class Command(BaseCommand):
             msg['To'] = to
             msg['Subject'] = 'ud-mailgate processing results'
             msg['Message-Id'] = make_msgid()
+            msg['In-Reply-To'] = message['Message-Id']
             msg['Date'] = formatdate(localtime=True)
             msg['Content-Disposition'] = 'inline'
             part1 = MIMEApplication(_data='Version: 1\n', _subtype='pgp-encrypted', _encoder=encode_7or8bit)

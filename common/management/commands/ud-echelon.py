@@ -18,8 +18,8 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from common.models import User
 
-import optparse
 import email
+import optparse
 import sys
 import time
 import yaml
