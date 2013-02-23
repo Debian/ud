@@ -116,7 +116,7 @@ def verify_message(message):
 def get_user_from_fingerprint(fingerprint):
     try:
         result = User.objects.filter(keyFingerPrint=fingerprint)
-        if len(result) == 1
+        if len(result) == 1:
             return result[0]
     except:
         pass

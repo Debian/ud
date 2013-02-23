@@ -39,6 +39,7 @@ class Handler(cmd.Cmd):
 
     def do_EOF(self, line):
         """exit from the command loop on CTRL^D"""
+        self.write(u'\n')
         return True
 
     def do_delete(self, line):
@@ -202,6 +203,13 @@ class Handler(cmd.Cmd):
     def emptyline(self):
         return False
 
+    def cmdloop(self, intro=None):
+        try:
+            cmd.Cmd.cmdloop(self, intro=self.intro)
+        except KeyboardInterrupt: # handle ctrl-C
+            self.write(u'\n')
+            self.do_discard('')
+
     def onecmd(self, line):
         return cmd.Cmd.onecmd(self, line)
 
@@ -219,8 +227,7 @@ class Handler(cmd.Cmd):
         return cmd.Cmd.preloop(self)
 
     def postloop(self):
-        if self.dirty:
-            self.entry.save()
+        self.do_save('')
         return cmd.Cmd.postloop(self)
 
 
