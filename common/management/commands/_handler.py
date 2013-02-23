@@ -37,6 +37,45 @@ class Handler(cmd.Cmd):
         else:
             self.fd.write(line.encode('utf-8'))
 
+    def complete_delete(self, text, line, begidx, endidx):
+        completions = list()
+        parts = line.split(' ')
+        if len(parts) == 2:
+            if text:
+                completions = [x.name for x in self.entry._meta.fields if x.name.startswith(text)]
+            else:
+                completions = [x.name for x in self.entry._meta.fields]
+        elif len(parts) > 2:
+            if parts[1] in [x.name for x in self.entry._meta.fields]:
+                field = self.entry._meta.get_field(parts[1])
+                values = getattr(self.entry, field.name)
+                if type(values) is list and values:
+                    # TODO complete_delete_dnsZoneEntry and friends
+                    this = ' '.join(parts[2:(-1 if text else len(parts))])
+                    that = ''
+                    completions = [x.replace(this,that).strip() for x in values if x.startswith(' '.join(parts[2:]))]
+        return completions
+
+    def complete_update(self, text, line, begidx, endidx):
+        completions = list()
+        parts = line.split(' ')
+        if len(parts) == 2:
+            if text:
+                completions = [x.name for x in self.entry._meta.fields if x.name.startswith(text)]
+            else:
+                completions = [x.name for x in self.entry._meta.fields]
+        elif len(parts) > 2:
+            if parts[1] in [x.name for x in self.entry._meta.fields]:
+                field = self.entry._meta.get_field(parts[1])
+                values = getattr(self.entry, field.name)
+                if type(values) is not list:
+                    values = [values]
+                if values:
+                    this = ' '.join(parts[2:(-1 if text else len(parts))])
+                    that = ''
+                    completions = [x.replace(this,that).strip() for x in values if x.startswith(' '.join(parts[2:]))]
+        return completions
+
     def do_EOF(self, line):
         """exit from the command loop on CTRL^D"""
         self.write(u'\n')
@@ -93,6 +132,10 @@ class Handler(cmd.Cmd):
         """display history of commands"""
         for entry in self.history:
             self.write(u'%s\n' % (entry))
+
+    def do_quit(self, line):
+        """exits from the command loop"""
+        return True
 
     def do_save(self, line):
         """save local modifications"""
@@ -186,10 +229,6 @@ class Handler(cmd.Cmd):
                 self.write(u'nak: %s\n' % (message))
                 self.has_errors = True
             pass
-
-    def do_quit(self, line):
-        """exits from the command loop"""
-        return True
 
     def _get_prompt(self):
         suffix = '#' if 'adm' in self.operator.supplementaryGid else '$'
