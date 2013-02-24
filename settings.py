@@ -1,5 +1,6 @@
 # Django settings for ud project.
 
+import os
 CACHE_DIR = '/var/tmp/ud'
 
 DEBUG = True
