@@ -17,6 +17,7 @@
 from django.conf import settings
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.db import models
 
 from ldapdb.models.fields import CharField, IntegerField, ListField
 import ldapdb.models
@@ -967,6 +968,12 @@ class User(ldapdb.models.Model):
                     errors.append(json.dumps([fieldname, value, err.messages]))
         if errors:
             raise ValidationError(errors)
+
+
+class ReplayCache(models.Model):
+    fingerprint = models.CharField(max_length=200)
+    timestamp = models.DateTimeField()
+    digest = models.CharField(max_length=200)
 
 
 # vim: ts=4 sw=4 et ai si sta:

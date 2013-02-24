@@ -62,7 +62,7 @@ class Command(BaseCommand):
             val = '[%s]' % ( time.strftime("%a, %d %b %Y %H:%M:%S",time.gmtime(time.time())) )
             if not key: # determine user from signature
                 try:
-                    (fingerprint, ignore) = verify_message(message)
+                    (fingerprint, content, timestamp) = verify_message(message)
                     user = get_user_from_fingerprint(fingerprint)
                     key = 'activityPGP'
                     val += ' "%s" ' % (fingerprint)

@@ -16,17 +16,21 @@
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from common.models import User
+from common.models import User, ReplayCache
 
-import optparse
+import base64
 import email
 import email.utils
+import hashlib
 import io
+import optparse
 import smtplib
 import sys
+import time
 
 import StringIO
 
+from datetime import datetime, timedelta
 from email.encoders import encode_7or8bit
 from email.generator import Generator
 from email.mime.application import MIMEApplication
@@ -73,27 +77,45 @@ class Command(BaseCommand):
             else:
                 raise CommandError('configuration file must specify password parameter')
             message = email.message_from_file(sys.stdin)
-            (fingerprint, commands) = verify_message(message)
-            user = get_user_from_fingerprint(fingerprint)
-            fd = io.StringIO(encoding='utf-8')
-            fd.write(u'\n===== start of processing =====\n')
-            handler = Handler(fd, user, user)
-            for command in commands:
-                if command == '-- ':
-                    break
-                fd.write(u'> %s\n' % (command))
-                handler.onecmd(command)
-            if self.options['dryrun']:
-                fd.write(u'==> dryrun: no changes saved\n')
-            else:
-                if handler.has_errors:
-                    fd.write(u'==> errors: no changes saved\n')
-                else:
-                    user.save()
-            fd.write(u'===== end of processing =====\n')
-            self.generate_reply(message, encrypt_result(fd.getvalue().encode('utf-8'), fingerprint))
+            result = self.process_message(message)
+            self.generate_reply(message, result)
         except Exception as err:
             raise CommandError(err)
+
+    def process_message(self, message):
+        (fingerprint, content, timestamp) = verify_message(message)
+        self.check_replay_cache(fingerprint, content, timestamp)
+        user = get_user_from_fingerprint(fingerprint)
+        fd = io.StringIO(encoding='utf-8')
+        fd.write(u'\n===== start of processing =====\n')
+        handler = Handler(fd, user, user)
+        for command in content.splitlines():
+            if command == '-- ':
+                break
+            fd.write(u'> %s\n' % (command))
+            handler.onecmd(command)
+        if self.options['dryrun']:
+            fd.write(u'==> dryrun: no changes saved\n')
+        else:
+            if handler.has_errors:
+                fd.write(u'==> errors: no changes saved\n')
+            else:
+                user.save()
+        fd.write(u'===== end of processing =====\n')
+        return encrypt_result(fd.getvalue().encode('utf-8'), fingerprint)
+
+    def check_replay_cache(self, fingerprint, content, timestamp):
+        digest = base64.b64encode(hashlib.sha512(content).digest())
+        for entry in ReplayCache.objects.filter(fingerprint=fingerprint):
+            if entry.timestamp < datetime.now() - timedelta(days=7):
+                entry.delete() # delete stale entries
+        if timestamp < datetime.now() - timedelta(days=4):
+            raise Exception('too far in the past')
+        if timestamp > datetime.now() + timedelta(days=3):
+            raise Exception('too far in the future')
+        if ReplayCache.objects.filter(fingerprint=fingerprint, digest=digest):
+            raise Exception('already seen!!')
+        ReplayCache(fingerprint=fingerprint, timestamp=timestamp, digest=digest).save()
 
     def generate_reply(self, message, result):
         try:

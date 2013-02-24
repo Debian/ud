@@ -1,6 +1,6 @@
 # Django settings for ud project.
 
-import os
+CACHE_DIR = '/var/tmp/ud'
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -14,6 +14,7 @@ MANAGERS = ADMINS
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(CACHE_DIR, 'replaycache.sqlite3'),
     },
     'ldap': {
     	'ENGINE': 'ldapdb.backends.ldap',
@@ -100,5 +101,3 @@ INSTALLED_APPS = (
     'common',
 )
 
-PROJECT_DIR = os.path.normpath(os.path.dirname(__file__))
-CACHE_DIR = '/var/tmp/ud'

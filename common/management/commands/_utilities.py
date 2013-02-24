@@ -28,6 +28,8 @@ import shutil
 import tempfile
 import yaml
 
+from datetime import datetime
+
 def load_configuration_file(filename):
     try:
         settings.config = yaml.load(open(filename))
@@ -87,7 +89,7 @@ def verify_message(message):
                 plaintext.seek(0,0)
             except Exception as err:
                 raise Exception('malformed text/plain message')
-            commands = plaintext.read().splitlines()
+            content = plaintext.read()
         elif message.get_content_type() == 'multipart/signed':
             try: # detached signature
                 signedtxt = pyme.core.Data(message.get_payload(0).as_string())
@@ -95,7 +97,7 @@ def verify_message(message):
                 ctx.op_verify(signature, signedtxt, None)
             except:
                 raise Exception('malformed multipart/signed message')
-            commands = message.get_payload(0).get_payload(decode=True).splitlines()
+            content = message.get_payload(0).get_payload(decode=True)
         else:
             raise Exception('malformed message: unsupported content-type')
         result = ctx.op_verify_result()
@@ -106,7 +108,8 @@ def verify_message(message):
         if result.signatures[0].status != 0:
             raise Exception('invalid signature')
         fingerprint = ctx.get_key(result.signatures[0].fpr, 0).subkeys[0].fpr
-        return (fingerprint, commands)
+        timestamp = datetime.fromtimestamp(result.signatures[0].timestamp)
+        return (fingerprint, content, timestamp)
     except Exception as err:
         raise err
     finally:
