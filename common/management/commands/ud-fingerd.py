@@ -19,6 +19,7 @@ from django.core.management.base import BaseCommand, CommandError
 from common.models import User
 
 import daemon
+import io
 import optparse
 import yaml
 
@@ -33,6 +34,7 @@ class FingerServer(SocketServer.TCPServer):
 class FingerHandler(SocketServer.StreamRequestHandler):
     def handle(self):
         try:
+            fd = io.StringIO(encoding='utf-8')
             uid = self.rfile.readline(512).strip()
             if uid.endswith('/key'):
                 uid = uid[:-4]
@@ -40,8 +42,8 @@ class FingerHandler(SocketServer.StreamRequestHandler):
                 if user:
                     asc = user.key
                     if asc:
-                        self.wfile.write(user.dn + '\n')
-                        self.wfile.write(asc)
+                        fd.write(user.dn + '\n')
+                        fd.write(asc)
                     else:
                         raise Exception('public key for "%s" not found at db.debian.org\n' % (uid))
                 else:
@@ -49,25 +51,26 @@ class FingerHandler(SocketServer.StreamRequestHandler):
             else:
                 user = User.objects.get(uid=uid)
                 if user:
-                    self.wfile.write('%s\n' % (user.dn))
-                    self.wfile.write('First name: %s\n' % (user.cn))
+                    fd.write(u'%s\n' % (user.dn))
+                    fd.write(u'First name: %s\n' % (user.cn))
                     if user.mn:
-                        self.wfile.write('Middle name: %s\n' % (user.mn))
-                    self.wfile.write('Last name: %s\n' % (user.sn))
-                    self.wfile.write('Email: %s\n' % (user.emailAddress))
+                        fd.write(u'Middle name: %s\n' % (user.mn))
+                    fd.write(u'Last name: %s\n' % (user.sn))
+                    fd.write(u'Email: %s\n' % (user.emailAddress))
                     if user.labeledURI:
-                        self.wfile.write('URL: %s\n' % (user.labeledURI))
+                        fd.write(u'URL: %s\n' % (user.labeledURI))
                     if user.ircNick:
-                        self.wfile.write('IRC nickname: %s\n' % (user.ircNick))
+                        fd.write(u'IRC nickname: %s\n' % (user.ircNick))
                     if user.icqUin:
-                        self.wfile.write('ICQ UIN: %s\n' % (user.icqUin))
+                        fd.write(u'ICQ UIN: %s\n' % (user.icqUin))
                     if user.jabberJID:
-                        self.wfile.write('Jabber ID: %s\n' % (user.jabberJID))
+                        fd.write(u'Jabber ID: %s\n' % (user.jabberJID))
                     if user.keyFingerPrint:
-                        self.wfile.write('Fingerprint: %s\n' % (user.keyFingerPrint))
-                        self.wfile.write('Key block: finger %s/key@db.debian.org\n' % (user.uid))
+                        fd.write(u'Fingerprint: %s\n' % (user.keyFingerPrint))
+                        fd.write(u'Key block: finger %s/key@db.debian.org\n' % (user.uid))
                 else:
                     raise Exception('ldap entry for "%s" not found at db.debian.org\n' % (uid))
+            self.wfile.write(fd.getvalue().encode('utf-8'))
         except Exception as err:
             self.wfile.write(err)
 

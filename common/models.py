@@ -26,6 +26,7 @@ ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, '/etc/ssl/certs/ca-certificates.crt')
 
 import base64
 import datetime
+import email.utils
 import json
 import hashlib
 import os
@@ -910,8 +911,7 @@ class User(ldapdb.models.Model):
         if self.cn: tokens.append(self.cn)
         if self.mn: tokens.append(self.mn)
         if self.sn: tokens.append(self.sn)
-        tokens.append('<%s@debian.org>' % (self.uid))
-        return ' '.join(tokens)
+        return email.utils.formataddr((' '.join(tokens), '%s@debian.org' % (self.uid)))
     emailAddress = property(_get_emailAddress)
 
     def _get_expire(self):

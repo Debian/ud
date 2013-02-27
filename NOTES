@@ -67,9 +67,6 @@
   - improve permission system; move into models
   - add 'dirty' mixin
   - finish validators
-  - ud-echelon, ud-fingerd and ud-replicate need
-    better credential handling
-  - add gpg.conf to repo
 
 [1] http://opensource.bolloretelecom.eu/projects/django-ldapdb
 [2] http://bugs.debian.org/626395
