@@ -887,6 +887,12 @@ class User(ldapdb.models.Model):
             return True
         return False
 
+    def is_guest_account(self):
+        if settings.config.has_key('guestGid'):
+            if self.gidNumber == settings.config['guestGid']
+                return True
+        return False
+
     def is_allowed_by_hostacl(self, desired_hostname):
         if not self.allowedHost:
             return False
