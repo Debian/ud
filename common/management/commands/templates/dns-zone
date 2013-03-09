@@ -1,6 +1,6 @@
 ## vim: set ft=mako:
 % for i, user in enumerate(users):
-%     if user.is_not_retired() and user.has_active_password():
+%     if user.is_not_retired() and user.is_not_guest_acount() and user.has_active_password():
 ${user.uid}._pka IN TXT "v=pka1\;fpr=${user.keyFingerPrint}\;uri=finger:${user.uid}/key@db.debian.org"
 %         if user.dnsZoneEntry:
 %             for label in set([x.split(' ')[0] for x in user.dnsZoneEntry]):
