@@ -1,6 +1,6 @@
 ## vim: set ft=mako:
 % for i, user in enumerate(users):
-%     if user.is_active() and user.privateSub:
+%     if user.is_active() and user.is_not_guest_account() and user.privateSub:
 ${user.privateSub}
 %     endif
 % endfor

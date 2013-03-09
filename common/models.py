@@ -893,6 +893,9 @@ class User(ldapdb.models.Model):
                 return True
         return False
 
+    def is_not_guest_account(self):
+        return not self.is_guest_account()
+
     def is_allowed_by_hostacl(self, desired_hostname):
         if not self.allowedHost:
             return False
