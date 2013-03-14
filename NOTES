@@ -60,9 +60,8 @@
   - ud-addhost    :   0%
   - ud-modhost    :  90%
   - ud-delhost    :   0%
-  - ud-adduser    :   0%
+  - ud-adduser    :   0% - batch support would be nice
   - ud-moduser    :  90%
-  - ud-deluser    :   0%
 - things to do
   - improve permission system; move into models
   - add 'dirty' mixin
