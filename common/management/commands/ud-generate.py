@@ -13,6 +13,7 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 # Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
+# Copyright (C) 2013 Martin Zobel-Helas <zobel@debian.org>
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
