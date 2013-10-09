@@ -4,7 +4,7 @@
   - django-ldapdb [1]
   - openssh-blacklist
   - openssh-blacklist-extra
-  - python-cdb
+  - python-cdb (Problem : no longer in the archive)
   - python-daemon
   - python-django
   - python-ipy
