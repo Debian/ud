@@ -37,6 +37,8 @@ import yaml
 
 from StringIO import StringIO
 
+from ldap import LDAPError
+
 # TODO check unicode handling
 class Command(BaseCommand):
     help = 'Generates, on a host-by-host basis, the set of files to be replicated.'
@@ -76,18 +78,21 @@ class Command(BaseCommand):
 
     def need_update(self):
         query = '(&(&(!(reqMod=activity-from*))(!(reqMod=activity-pgp*)))(|(reqType=add)(reqType=delete)(reqType=modify)(reqType=modrdn)))'
-        mods = connections['ldap'].cursor().connection.search_s('cn=log', ldap.SCOPE_ONELEVEL, query, ['reqEnd'])
-        self.last_ldap_mod = long(max([mod[1]['reqEnd'] for mod in mods])[0].split('.')[0])
         try:
-            with open(os.path.join(self.dstdir, 'last_update.trace'), 'r') as f:
-                y = yaml.load(f)
-                if y:
-                    return self.last_ldap_mod > y.get('last_ldap_mod', 0) # TODO or last_unix_mod > y.get('last_unix_mod')
-                else:
-                    return True
-        except IOError as err:
-            if err.errno != errno.ENOENT:
-                raise err
+            mods = connections['ldap'].cursor().connection.search_s('cn=log', ldap.SCOPE_ONELEVEL, query, ['reqEnd'])
+            self.last_ldap_mod = long(max([mod[1]['reqEnd'] for mod in mods])[0].split('.')[0])
+            try:
+                with open(os.path.join(self.dstdir, 'last_update.trace'), 'r') as f:
+                    y = yaml.load(f)
+                    if y:
+                        return self.last_ldap_mod > y.get('last_ldap_mod', 0) # TODO or last_unix_mod > y.get('last_unix_mod')
+                    else:
+                        return True
+            except IOError as err:
+                if err.errno != errno.ENOENT:
+                    raise err
+        except LDAPError as err:
+            raise CommandError("Couldn't process LDAP query %s : %s" % (query, str(err)))
         return True
         
     def marshall(self):
