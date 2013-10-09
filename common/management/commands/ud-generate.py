@@ -66,10 +66,12 @@ class Command(BaseCommand):
         except lockfile.LockTimeout as err:
             raise CommandError('timed out waiting to lock the lockfile')
         try:
-            if self.need_update() or self.options['force']:
+            if self.options['force'] or self.need_update() :
                 with open(os.path.join(self.dstdir, 'last_update.trace'), 'w') as f:
                     self.marshall()
                     self.generate()
+                    if not hasattr(self, 'last_ldap_mod') :
+                        self.last_ldap_mod = 0
                     f.write(yaml.dump({'last_ldap_mod': self.last_ldap_mod, 'last_generate': int(time.time())}))
         except Exception as err:
             raise CommandError(err)
