@@ -975,6 +975,8 @@ class User(ldapdb.models.Model):
                     field.clean(value, self)
                 except ValidationError as err:
                     errors.append(json.dumps([fieldname, value, err.messages]))
+                except pyparsing.ParseException as err:
+                    errors.append(json.dumps([fieldname, value, str(err)]))
         if errors:
             raise ValidationError(errors)
 
