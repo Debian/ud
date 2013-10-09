@@ -51,6 +51,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options): # TODO load_configuration_file
         self.options = options
         self.dstdir = os.path.join(settings.CACHE_DIR, 'hosts')
+        # TODO : create self.dstdir if it doesn"t exist
         self.tpldir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
         self.finder = TemplateLookup(directories=[self.tpldir], encoding_errors='ignore', output_encoding='utf-8')
         lock = lockfile.FileLock(os.path.join(self.dstdir, 'ud-generate'))
