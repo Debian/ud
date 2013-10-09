@@ -889,7 +889,7 @@ class User(ldapdb.models.Model):
 
     def is_guest_account(self):
         if settings.config.has_key('guestGid'):
-            if self.gidNumber == settings.config['guestGid']
+            if self.gidNumber == settings.config['guestGid']:
                 return True
         return False
 
