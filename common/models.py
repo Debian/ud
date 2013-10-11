@@ -509,9 +509,128 @@ class Group(ldapdb.models.Model):
         return self.gid
 
 
-class User(ldapdb.models.Model):
-    base_dn = 'ou=users,dc=debian,dc=org'
-    object_classes = ['debianAccount']
+# # cf. rfc2798
+class LdapInetOrgPerson(ldapdb.models.Model):
+
+    # from organizationalPerson
+
+    # --- MUST ----
+    
+    cn                                      = CharField(db_column='cn',
+                                                validators=[validate_cn])
+    cn.permissions                          = { 'self': 'read', 'root': 'write' }
+
+    # --- MUST ----
+
+    sn                                      = CharField(db_column='sn',
+                                                validators=[validate_sn])
+    sn.permissions                          = { 'self': 'read', 'root': 'write' }
+
+    #---- MAY -----    
+
+    facsimileTelephoneNumber                = CharField(db_column='facsimileTelephoneNumber',
+                                                validators=[validate_facsimileTelephoneNumber], null=True, blank=True)
+    facsimileTelephoneNumber.permissions    = { 'self': 'write', 'root': 'write' }
+
+    # localityName
+    l                                       = CharField(db_column='l',
+                                                validators=[validate_l], null=True, blank=True)
+    l.permissions                           = { 'self': 'write', 'root': 'write' }
+
+    labeledURI                              = CharField(db_column='labeledURI',
+                                                validators=[validate_labeledURI], null=True, blank=True)
+    labeledURI.permissions                  = { 'self': 'write', 'root': 'write' }
+
+    class Meta:
+        abstract = True
+
+class LdapDebianAccount(LdapInetOrgPerson):
+    "Abstraction of an account with POSIX attributes and UTF8 support"
+    
+    #object_classes = ['debianAccount']
+    
+    # objectclass ( 1.3.6.1.4.1.9586.100.4.1.1
+    #     NAME 'debianAccount'
+    #     DESC 'Abstraction of an account with POSIX attributes and UTF8 support'
+    #     SUP top AUXILIARY
+    #     MUST ( cn $ uid $ uidNumber $ gidNumber )
+    #     MAY ( userPassword $ loginShell $ gecos $ homeDirectory $ description $ mailDisableMessage $ sudoPassword $ webPassword $ voipPassword ) )
+
+
+    uid                                     = CharField(db_column='uid',
+                                                validators=[], primary_key=True)
+    uid.permissions                         = { 'self': 'read', 'root': 'read' }
+
+    uidNumber                               = IntegerField( db_column='uidNumber',
+                                                validators=[])
+    uidNumber.permissions                   = { 'self': 'read', 'root': 'read' }
+
+    gidNumber                               = IntegerField(db_column='gidNumber',
+                                                validators=[validate_gidNumber])
+    gidNumber.permissions                   = { 'self': 'read', 'root': 'write' }
+
+    #---- MAY -----
+    
+    userPassword                            = CharField(db_column='userPassword',
+                                                validators=[validate_userPassword])
+    userPassword.permissions                = { 'self': 'none', 'root': 'read' }
+
+    loginShell                              = CharField(db_column='loginShell',
+                                                validators=[validate_loginShell])
+    loginShell.permissions                  = { 'self': 'read', 'root': 'write' }
+
+    gecos                                   = CharField(db_column='gecos',
+                                                validators=[validate_gecos])
+    gecos.permissions                       = { 'self': 'read', 'root': 'write' }
+
+    # TODO homeDirectory - not stored in LDAP; required by posixAccount use a property?
+
+    mailDisableMessage                      = CharField(db_column='mailDisableMessage',
+                                                validators=[validate_mailDisableMessage], null=True, blank=True)
+    mailDisableMessage.permissions          = { 'self': 'read', 'root': 'write' }
+
+    # TODO sudoPassword ?
+
+    webPassword                             = CharField(db_column='webPassword',
+                                                validators=[validate_webPassword], null=True, blank=True)
+    webPassword.permissions                 = { 'self': 'none', 'root': 'read' }
+
+    voipPassword                            = CharField(db_column='voipPassword',
+                                                validators=[validate_voipPassword], null=True, blank=True)
+    voipPassword.permissions                = { 'self': 'none', 'root': 'read' }
+
+    class Meta:
+        abstract = True
+
+#class LdapShadowAccount
+
+class LdapDebianDeveloper(LdapDebianAccount):
+    "additional account attributes used by Debian"
+
+    #base_dn = 'ou=users,dc=debian,dc=org'
+ 
+    #object_classes = ['debianAccount', 'debianDeveloper']
+   
+    # objectclass ( 1.3.6.1.4.1.9586.100.4.3.1
+    #     NAME 'debianDeveloper'
+    #     DESC 'additional account attributes used by Debian'
+    #     SUP top AUXILIARY
+    #     MUST ( uid $ cn $ sn )
+    #     MAY ( accountComment $ accountStatus $ activity-from $
+    #           activity-pgp $ allowedHost $ comment $ countryName $
+    #           dnsZoneEntry $ emailForward $ icqUin $ ircNick $
+    #           jabberJID $ keyFingerPrint $ latitude $ longitude $ mn $
+    #           onVacation $ privateSub $ sshRSAAuthKey $ supplementaryGid $
+    #           access $ gender $ birthDate $ mailCallout $ mailGreylisting $
+    #               mailRBL $ mailRHSBL $ mailWhitelist $ VoIP $ mailContentInspectionAction $
+    #               bATVToken $ mailDefaultOptions $ mailPreserveSuffixSeparator
+    #     ) )
+
+    #---- MAY -----
+
+    # TODO access ?
+
+    # TODO accountComment
 
     accountStatus                           = CharField(db_column='accountStatus',
                                                 validators=[validate_accountStatus], null=True, blank=True)
@@ -537,13 +656,12 @@ class User(ldapdb.models.Model):
                                                 validators=[validate_birthDate], null=True, blank=True)
     birthDate.permissions                   = { 'self': 'write', 'root': 'write' }
 
+    # countryName
     c                                       = CharField(db_column='c',
                                                 validators=[validate_c], null=True, blank=True)
     c.permissions                           = { 'self': 'write', 'root': 'write' }
 
-    cn                                      = CharField(db_column='cn',
-                                                validators=[validate_cn])
-    cn.permissions                          = { 'self': 'read', 'root': 'write' }
+    
 
     dnsZoneEntry                            = ListField(db_column='dnsZoneEntry',
                                                 validators=[validate_dnsZoneEntry])
@@ -557,23 +675,9 @@ class User(ldapdb.models.Model):
 
     #expire = property(_get_expire)
 
-    facsimileTelephoneNumber                = CharField(db_column='facsimileTelephoneNumber',
-                                                validators=[validate_facsimileTelephoneNumber], null=True, blank=True)
-    facsimileTelephoneNumber.permissions    = { 'self': 'write', 'root': 'write' }
-
-    gecos                                   = CharField(db_column='gecos',
-                                                validators=[validate_gecos])
-    gecos.permissions                       = { 'self': 'read', 'root': 'write' }
-
-    gidNumber                               = IntegerField(db_column='gidNumber',
-                                                validators=[validate_gidNumber])
-    gidNumber.permissions                   = { 'self': 'read', 'root': 'write' }
-
     gender                                  = CharField(db_column='gender', # XXX use IntegerField instead?
                                                 validators=[validate_gender], null=True, blank=True)
     gender.permissions                      = { 'self': 'write', 'root': 'write' }
-
-    # TODO homeDirectory - not stored in LDAP; required by posixAccount use a property?
 
     icqUin                                  = CharField(db_column='icqUin',
                                                 validators=[validate_icqUin], null=True, blank=True)
@@ -597,27 +701,20 @@ class User(ldapdb.models.Model):
                                                 validators=[validate_keyFingerPrint], null=True, blank=True)
     keyFingerPrint.permissions              = { 'self': 'read', 'root': 'write' }
 
-    l                                       = CharField(db_column='l',
-                                                validators=[validate_l], null=True, blank=True)
-    l.permissions                           = { 'self': 'write', 'root': 'write' }
-
-    labeledURI                              = CharField(db_column='labeledURI',
-                                                validators=[validate_labeledURI], null=True, blank=True)
-    labeledURI.permissions                  = { 'self': 'write', 'root': 'write' }
-
     latitude                                = CharField(db_column='latitude',
                                                 validators=[validate_latitude], null=True, blank=True)
     latitude.permissions                    = { 'self': 'write', 'root': 'write' }
-
-    loginShell                              = CharField(db_column='loginShell',
-                                                validators=[validate_loginShell])
-    loginShell.permissions                  = { 'self': 'read', 'root': 'write' }
 
     longitude                               = CharField(db_column='longitude',
                                                 validators=[validate_longitude], null=True, blank=True)
     longitude.permissions                   = { 'self': 'write', 'root': 'write' }
 
+
     # TODO mailCallout
+
+    mailCallout                             = CharField(db_column='mailCallout',
+                                                validators=[validate_mailCallout], null=True, blank=True)
+    mailCallout.permissions                 = { 'self': 'write', 'root': 'write' }
 
     mailContentInspectionAction             = CharField(db_column='mailContentInspectionAction',
                                                 validators=[validate_mailContentInspectionAction], null=True, blank=True)
@@ -627,18 +724,12 @@ class User(ldapdb.models.Model):
                                                 validators=[validate_mailDefaultOptions], null=True, blank=True)
     mailDefaultOptions.permissions          = { 'self': 'write', 'root': 'write' }
 
-    mailDisableMessage                      = CharField(db_column='mailDisableMessage',
-                                                validators=[validate_mailDisableMessage], null=True, blank=True)
-    mailDisableMessage.permissions          = { 'self': 'read', 'root': 'write' }
-
-    mailCallout                             = CharField(db_column='mailCallout',
-                                                validators=[validate_mailCallout], null=True, blank=True)
-    mailCallout.permissions                 = { 'self': 'write', 'root': 'write' }
-
     mailGreylisting                         = CharField(db_column='mailGreylisting',
                                                 validators=[validate_mailGreylisting], null=True, blank=True)
     mailGreylisting.permissions             = { 'self': 'write', 'root': 'write' }
 
+    # TODO mailPreserveSuffixSeparator
+    
     mailRBL                                 = ListField(db_column='mailRBL',
                                                 validators=[validate_mailRBL], null=True, blank=True)
     mailRBL.permissions                     = { 'self': 'write', 'root': 'write' }
@@ -697,10 +788,6 @@ class User(ldapdb.models.Model):
                                                 validators=[])
     shadowWarning.permissions               = { 'self': 'read', 'root': 'read' }
 
-    sn                                      = CharField(db_column='sn',
-                                                validators=[validate_sn])
-    sn.permissions                          = { 'self': 'read', 'root': 'write' }
-
     sshRSAAuthKey                           = ListField(db_column='sshRSAAuthKey',
                                                 validators=[validate_sshRSAAuthKey], null=True, blank=True)
     sshRSAAuthKey.permissions               = { 'self': 'write', 'root': 'write' }
@@ -717,25 +804,16 @@ class User(ldapdb.models.Model):
 
     # TODO VoIP.permissions
 
-    uid                                     = CharField(db_column='uid',
-                                                validators=[], primary_key=True)
-    uid.permissions                         = { 'self': 'read', 'root': 'read' }
+    class Meta:
+        abstract = True
 
-    uidNumber                               = IntegerField( db_column='uidNumber',
-                                                validators=[])
-    uidNumber.permissions                   = { 'self': 'read', 'root': 'read' }
 
-    userPassword                            = CharField(db_column='userPassword',
-                                                validators=[validate_userPassword])
-    userPassword.permissions                = { 'self': 'none', 'root': 'read' }
-
-    voipPassword                            = CharField(db_column='voipPassword',
-                                                validators=[validate_voipPassword], null=True, blank=True)
-    voipPassword.permissions                = { 'self': 'none', 'root': 'read' }
-
-    webPassword                             = CharField(db_column='webPassword',
-                                                validators=[validate_webPassword], null=True, blank=True)
-    webPassword.permissions                 = { 'self': 'none', 'root': 'read' }
+# TODO : rename as LdapUser ?
+class User(LdapDebianDeveloper):
+    
+    base_dn = 'ou=users,dc=debian,dc=org'
+    
+    object_classes = ['debianAccount']
 
     def __str__(self):
         return self.uid
