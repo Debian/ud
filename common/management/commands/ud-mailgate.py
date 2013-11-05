@@ -16,7 +16,7 @@
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from common.models import User, ReplayCache
+from common.models import LdapUser as User, ReplayCache
 
 import base64
 import email

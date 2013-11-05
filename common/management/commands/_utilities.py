@@ -16,7 +16,7 @@
 
 from django.conf import settings
 from django.core.management.base import CommandError
-from common.models import User
+from common.models import LdapUser as User
 
 import email
 import email.utils

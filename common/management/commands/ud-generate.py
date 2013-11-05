@@ -18,7 +18,7 @@
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
-from common.models import Host, Group, User
+from common.models import Host, Group, LdapUser as User
 from mako.lookup import TemplateLookup
 from mako.template import Template
 

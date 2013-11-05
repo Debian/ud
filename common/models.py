@@ -808,8 +808,7 @@ class LdapDebianDeveloper(LdapDebianAccount):
         abstract = True
 
 
-# TODO : rename as LdapUser ?
-class User(LdapDebianDeveloper):
+class LdapUser(LdapDebianDeveloper):
     
     base_dn = 'ou=users,dc=debian,dc=org'
     
