@@ -2,6 +2,9 @@
 
 A reimplementation of Debian's userdir-ldap, leveraging the Django framework.
 
+It provides several commands, as django.core.management commands (see 
+common/management/commands).
+
 The Debian Project operates a number of servers (physical and virtual) in data
 centres located around the world (primarily in Europe and North America).
 

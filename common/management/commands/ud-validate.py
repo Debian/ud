@@ -21,6 +21,9 @@ from common.models import Host, Group, User
 
 import getpass
 import optparse
+import ldap
+
+from _utilities import load_configuration_file
 
 # TODO check unicode handling
 class Command(BaseCommand):

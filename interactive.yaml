@@ -1,0 +1,4 @@
+# Declare useful parameters, and put file where appropriate (defaults : /etc/ud/interactive.yaml)
+keyrings:
+- /usr/share/keyrings/debian-keyring.gpg
+
