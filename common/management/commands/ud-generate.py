@@ -85,7 +85,7 @@ class Command(BaseCommand):
             self.last_ldap_mod = long(max([mod[1]['reqEnd'] for mod in mods])[0].split('.')[0])
             try:
                 with open(os.path.join(self.dstdir, 'last_update.trace'), 'r') as f:
-                    y = yaml.load(f)
+                    y = yaml.safe_load(f)
                     if y:
                         return self.last_ldap_mod > y.get('last_ldap_mod', 0) # TODO or last_unix_mod > y.get('last_unix_mod')
                     else:

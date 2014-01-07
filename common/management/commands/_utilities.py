@@ -32,7 +32,7 @@ from datetime import datetime
 
 def load_configuration_file(filename):
     try:
-        settings.config = yaml.load(open(filename))
+        settings.config = yaml.safe_load(open(filename))
     except Exception as err:
         raise Exception('could not load configuration file')
     if not settings.config.has_key('keyrings'):
