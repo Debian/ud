@@ -30,7 +30,6 @@ from _utilities import load_configuration_file
 class FingerServer(SocketServer.TCPServer):
     allow_reuse_address = True
 
-# TODO check unicode handling
 class FingerHandler(SocketServer.StreamRequestHandler):
     def handle(self):
         try:
