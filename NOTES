@@ -1,18 +1,17 @@
 - runtime dependencies
   - ca-certificates
   - debian-keyring
-  - django-ldapdb [1]
   - openssh-blacklist
   - openssh-blacklist-extra
   - python-cdb (Problem : no longer in the archive)
   - python-daemon
   - python-django
+  - python-django-ldapdb
   - python-ipy
   - python-lockfile
-  - python-lxml [2]
   - python-m2crypto
   - python-mako
-  - python-nameparser [3]
+  - python-nameparser [1]
   - python-pycountry
   - python-pyme
   - python-pyparsing
@@ -67,6 +66,4 @@
   - add 'dirty' mixin
   - finish validators
 
-[1] http://opensource.bolloretelecom.eu/projects/django-ldapdb
-[2] http://bugs.debian.org/626395
-[3] http://pypi.python.org/pypi/nameparser
+[1] http://pypi.python.org/pypi/nameparser
