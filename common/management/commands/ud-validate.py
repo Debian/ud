@@ -17,7 +17,7 @@
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.management.base import BaseCommand, CommandError
-from common.models import Host, Group, User
+from common.models import Host, Group, LdapUser as User
 
 import getpass
 import optparse
