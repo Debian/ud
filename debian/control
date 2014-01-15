@@ -1,7 +1,7 @@
 Source: ud
 Section: admin
 Priority: extra
-Maintainer: Luca Filipozzi <luca.filipozzi@gmail.com>
+Maintainer: Luca Filipozzi <lfilipoz@debian.org>
 Build-Depends: debhelper (>= 8.0.0)
 Standards-Version: 3.9.3
 Homepage: https://github.com/LucaFilipozzi/ud
@@ -10,7 +10,7 @@ Vcs-Browser: https://github.com/LucaFilipozzi/ud
 
 Package: ud
 Architecture: all
-Depends: ${misc:Depends}
+Depends: ${misc:Depends}, ca-certificates, debian-keyring, openssh-blacklist, openssh-blacklist-extra, python-daemon, python-django-ldapdb, python-ipy, python-lockfile, python-m2crypto, python-mako, python-pycountry, python-pyme, pythong-pyparsing
 Description: a reimplementation of Debian's userdir-ldap, leveraging the Django framework
  ud provides Debian System Administrators with utilities to manage
  User, Group and Host entries in Debian's LDAP; and provides end
