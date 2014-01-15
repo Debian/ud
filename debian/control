@@ -1,0 +1,19 @@
+Source: ud
+Section: admin
+Priority: extra
+Maintainer: Luca Filipozzi <luca.filipozzi@gmail.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.3
+Homepage: https://github.com/LucaFilipozzi/ud
+Vcs-Git: git://github.com/LucaFilipozzi/ud.git
+Vcs-Browser: https://github.com/LucaFilipozzi/ud
+
+Package: ud
+Architecture: all
+Depends: ${misc:Depends}
+Description: a reimplementation of Debian's userdir-ldap, leveraging the Django framework
+ ud provides Debian System Administrators with utilities to manage
+ User, Group and Host entries in Debian's LDAP; and provides end
+ users with the ability to manage their attributes.  ud marshalls
+ LDAP data into the necessary files (ud-generate) and pushes those
+ files to Debian machines (ud-replicate)
