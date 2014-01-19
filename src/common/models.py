@@ -134,17 +134,17 @@ def validate_dnsZoneEntry(val, mode='update'):
     # TODO ensure label is not owned by another user
     # TODO reimplement fqdn/pqdn/ipv4/ipv6 with pyparsing
     update = (
-        pyparsing.LineStart() + pyparsing.Regex(r'[-\w.]+\w') + pyparsing.Keyword('IN') + (
+        pyparsing.LineStart() + pyparsing.Regex(r'^(?=\w)[-\w.]+(?<![.])$') + pyparsing.Keyword('IN') + (
             ( pyparsing.Keyword('A') + pyparsing.Word(pyparsing.nums+'.') ) | 
             ( pyparsing.Keyword('AAAA') + pyparsing.Word(pyparsing.hexnums+':') ) |
-            ( pyparsing.Keyword('CNAME') + pyparsing.Regex(r'[-\w.]+\.') ) |
-            ( pyparsing.Keyword('MX') + pyparsing.Regex(r'\d{1,3}') + pyparsing.Regex(r'[-\w.]+\.') ) |
+            ( pyparsing.Keyword('CNAME') + pyparsing.Regex(r'^(?=\w)[-\w.]+(?<=[.])$') ) |
+            ( pyparsing.Keyword('MX') + pyparsing.Regex(r'\d{1,5}') + pyparsing.Regex(r'[-\w.]+\.') ) |
             ( pyparsing.Keyword('TXT') + pyparsing.QuotedString('"', escChar='\\', unquoteResults=False) )
         ) +
         pyparsing.LineEnd()
     )
     delete = (
-        pyparsing.LineStart() + pyparsing.Regex(r'[-\w.]+\w') + pyparsing.Optional(
+        pyparsing.LineStart() + pyparsing.Regex(r'^(?=\w)[-\w.]+(?<![.])$') + pyparsing.Optional(
             ( pyparsing.Keyword('IN') + pyparsing.Keyword('A') ) |
             ( pyparsing.Keyword('IN') + pyparsing.Keyword('AAAA') ) |
             ( pyparsing.Keyword('IN') + pyparsing.Keyword('CNAME') ) |
@@ -176,9 +176,12 @@ def validate_dnsZoneEntry_IN_CNAME(name, cname):
     validate_pqdn(name)
     validate_fqdn(cname)
 
+# per RFC 974, the preference number in MX RRs is an
+# unsigned integer [0,65535], decimal representation
+# see http://tools.ietf.org/html/rfc974
 def validate_dnsZoneEntry_IN_MX(name, preference, exchange):
     validate_pqdn(name)
-    if int(preference) < 1 or int(preference) > 999:
+    if int(preference) < 0 or int(preference) > 65535:
         raise ValidationError('preference %s out of range' % preference)
     validate_fqdn(exchange)
 
@@ -192,10 +195,15 @@ def validate_emailForward(val):
     except:
         raise ValidationError('value is not a valid for emailForward')
 
+# as Debian is an international project, follow the recommendations of
+# ITU E.123 regarding international representation of telephone numbers
+# - only spaces should be used to visually separate groups of numbers in international notation
+# - parentheses should not be used in the international notation
+# see http://en.wikipedia.org/wiki/E.123
 def validate_facsimileTelephoneNumber(val):
     validator = (
         pyparsing.LineStart() +
-        pyparsing.Word(pyparsing.nums+'+-.') +
+        pyparsing.Word(pyparsing.nums+'+ ') +
         pyparsing.LineEnd()
     )
     validator.parseString(val)
@@ -414,8 +422,8 @@ def validate_sshRSAAuthKey_key(encoded_key):
         raise ValidationError('newly created key and provided key do not match')
 
     key_size = len(created_key)
-    if key_size not in [1024, 2048, 4096]:
-        raise ValidationError('key must have size 1024, 2048 or 4096 bits')
+    if key_size not in [1024, 2048, 4096, 8192]:
+        raise ValidationError('key must have size 1024, 2048, 4096 or 8192 bits')
 
     fingerprint = hashlib.md5(encoded_key).hexdigest()[12:]
     for line in file('/usr/share/ssh/blacklist.RSA-%d' % (key_size)):
@@ -641,11 +649,11 @@ class LdapDebianDeveloper(LdapDebianAccount):
                                                 validators=[validate_accountStatus], null=True, blank=True)
     accountStatus.permissions               = { 'self': 'none', 'root': 'read' }
 
-    activityFrom                            = CharField(db_column='activity-from',
+    activityFrom                            = CharField(db_column='activity-from', max_length=300,
                                                 validators=[validate_activityFrom], null=True, blank=True)
     activityFrom.permissions                = { 'self': 'none', 'root': 'read' }
 
-    activityPGP                             = CharField(db_column='activity-pgp',
+    activityPGP                             = CharField(db_column='activity-pgp', max_length=300,
                                                 validators=[validate_activityPGP], null=True, blank=True)
     activityPGP.permissions                 = { 'self': 'none', 'root': 'read' }
 
