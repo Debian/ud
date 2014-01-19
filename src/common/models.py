@@ -134,10 +134,10 @@ def validate_dnsZoneEntry(val, mode='update'):
     # TODO ensure label is not owned by another user
     # TODO reimplement fqdn/pqdn/ipv4/ipv6 with pyparsing
     update = (
-        pyparsing.LineStart() + pyparsing.Regex(r'^(?=\w)[-\w.]+(?<![.])$') + pyparsing.Keyword('IN') + (
+        pyparsing.LineStart() + pyparsing.Regex(r'(?=\w)[-\w.]+(?<![.])') + pyparsing.Keyword('IN') + (
             ( pyparsing.Keyword('A') + pyparsing.Word(pyparsing.nums+'.') ) | 
             ( pyparsing.Keyword('AAAA') + pyparsing.Word(pyparsing.hexnums+':') ) |
-            ( pyparsing.Keyword('CNAME') + pyparsing.Regex(r'^(?=\w)[-\w.]+(?<=[.])$') ) |
+            ( pyparsing.Keyword('CNAME') + pyparsing.Regex(r'(?=\w)[-\w.]+(?<=[.])') ) |
             ( pyparsing.Keyword('MX') + pyparsing.Regex(r'\d{1,5}') + pyparsing.Regex(r'[-\w.]+\.') ) |
             ( pyparsing.Keyword('TXT') + pyparsing.QuotedString('"', escChar='\\', unquoteResults=False) )
         ) +
