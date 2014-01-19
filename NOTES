@@ -1,8 +1,6 @@
 - runtime dependencies
   - ca-certificates
   - debian-keyring
-  - openssh-blacklist
-  - openssh-blacklist-extra
   - python-cdb (Problem : no longer in the archive)
   - python-daemon
   - python-django

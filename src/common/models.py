@@ -57,9 +57,8 @@ import pycountry
 
 thismodule = sys.modules[__name__]
 
-# not IDN ready
 def validate_dns_labels(val):
-    disallowed = re.compile('[^A-Z\d-]', re.IGNORECASE)
+    disallowed = re.compile('[^_A-Z\d-]', re.IGNORECASE)
     for label in val.split('.'):
         if len(label) == 0:
             raise ValidationError('label in name is too short')
@@ -67,6 +66,10 @@ def validate_dns_labels(val):
             raise ValidationError('label in name is too long')
         if label.startswith('-') or label.endswith('-'):
             raise ValidationError('label in name begins/ends with hyphen')
+        if label.endswith('_'):
+            raise ValidationError('label in name ends with underscore')
+        if label.contains('_') and not label.startswith('_'):
+            raise ValidationError('label in name contains an underscore')
         if disallowed.search(label):
             raise ValidationError('label in name contains invalid characters')
 
@@ -134,17 +137,17 @@ def validate_dnsZoneEntry(val, mode='update'):
     # TODO ensure label is not owned by another user
     # TODO reimplement fqdn/pqdn/ipv4/ipv6 with pyparsing
     update = (
-        pyparsing.LineStart() + pyparsing.Regex(r'(?=\w)[-\w.]+(?<![.])') + pyparsing.Keyword('IN') + (
+        pyparsing.LineStart() + pyparsing.Regex(r'(?=\w)[-\w.]+(?<![-_.])') + pyparsing.Keyword('IN') + (
             ( pyparsing.Keyword('A') + pyparsing.Word(pyparsing.nums+'.') ) | 
             ( pyparsing.Keyword('AAAA') + pyparsing.Word(pyparsing.hexnums+':') ) |
-            ( pyparsing.Keyword('CNAME') + pyparsing.Regex(r'(?=\w)[-\w.]+(?<=[.])') ) |
+            ( pyparsing.Keyword('CNAME') + pyparsing.Regex(r'(?=\w)[-\w.]+(?<![-_])[.]') ) |
             ( pyparsing.Keyword('MX') + pyparsing.Regex(r'\d{1,5}') + pyparsing.Regex(r'[-\w.]+\.') ) |
             ( pyparsing.Keyword('TXT') + pyparsing.QuotedString('"', escChar='\\', unquoteResults=False) )
         ) +
         pyparsing.LineEnd()
     )
     delete = (
-        pyparsing.LineStart() + pyparsing.Regex(r'^(?=\w)[-\w.]+(?<![.])$') + pyparsing.Optional(
+        pyparsing.LineStart() + pyparsing.Regex(r'^(?=\w)[-\w.]+(?<![-_.])$') + pyparsing.Optional(
             ( pyparsing.Keyword('IN') + pyparsing.Keyword('A') ) |
             ( pyparsing.Keyword('IN') + pyparsing.Keyword('AAAA') ) |
             ( pyparsing.Keyword('IN') + pyparsing.Keyword('CNAME') ) |
@@ -181,7 +184,7 @@ def validate_dnsZoneEntry_IN_CNAME(name, cname):
 # see http://tools.ietf.org/html/rfc974
 def validate_dnsZoneEntry_IN_MX(name, preference, exchange):
     validate_pqdn(name)
-    if int(preference) < 0 or int(preference) > 65535:
+    if int(preference) not in range(65536):
         raise ValidationError('preference %s out of range' % preference)
     validate_fqdn(exchange)
 
@@ -195,22 +198,23 @@ def validate_emailForward(val):
     except:
         raise ValidationError('value is not a valid for emailForward')
 
-# as Debian is an international project, follow the recommendations of
-# ITU E.123 regarding international representation of telephone numbers
+# Let's follow the recommendations of ITU E.123 regarding international notation of telephone numbers:
 # - only spaces should be used to visually separate groups of numbers in international notation
 # - parentheses should not be used in the international notation
 # see http://en.wikipedia.org/wiki/E.123
 def validate_facsimileTelephoneNumber(val):
     validator = (
         pyparsing.LineStart() +
-        pyparsing.Word(pyparsing.nums+'+ ') +
+        pyparsing.Word(pyparsing.nums+'+ /') +
         pyparsing.LineEnd()
     )
     validator.parseString(val)
 
 def validate_gecos(val): return # TODO
 
-def validate_gender(val): # ISO 5218
+# Let's follow the ISO 5218 standard for genders.
+# see http://en.wikipedia.org/wiki/ISO/IEC_5218
+def validate_gender(val):
     validator = (
         pyparsing.LineStart() + (
             pyparsing.Keyword('0') | # not known
@@ -420,15 +424,6 @@ def validate_sshRSAAuthKey_key(encoded_key):
 
     if encoded_key != base64.b64encode('\0\0\0\7ssh-rsa%s%s' % created_key.pub()):
         raise ValidationError('newly created key and provided key do not match')
-
-    key_size = len(created_key)
-    if key_size not in [1024, 2048, 4096, 8192]:
-        raise ValidationError('key must have size 1024, 2048, 4096 or 8192 bits')
-
-    fingerprint = hashlib.md5(encoded_key).hexdigest()[12:]
-    for line in file('/usr/share/ssh/blacklist.RSA-%d' % (key_size)):
-        if fingerprint == line.rstrip():
-            raise ValidationError('key is weak (debian openssl fiasco)')
 
 def validate_supplementaryGid(val):
     try:
