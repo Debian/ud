@@ -18,6 +18,7 @@
   - Group
   - User
 - commands that currently exist in userdir-ldap
+  - sigcheck                 : ack - to do
   - ud-arbimport             : nak
   - ud-config                : nak
   - ud-echelon               : ack - done
@@ -47,7 +48,7 @@
 - commands that we we will build (and % completed)
   - ud-echelon    :  90%
   - ud-fingerd    :  90%
-  - ud-generate   :  90%
+  - ud-generate   :  90% - critical path
   - ud-replicate  :   0%
   - ud-validate   :  90%
   - ud-zoneupdate :   0%
@@ -57,8 +58,13 @@
   - ud-addhost    :   0%
   - ud-modhost    :  90%
   - ud-delhost    :   0%
+  - ud-addrole    :   0%
+  - ud-modrole    :   0%
+  - ud-delrole    :   0%
   - ud-adduser    :   0% - batch support would be nice
   - ud-moduser    :  90%
+  - ud-deluser    :   0% - really just locks account
+  - ud-sigckeck   :   0%
 - things to do
   - improve permission system; move into models
   - add 'dirty' mixin

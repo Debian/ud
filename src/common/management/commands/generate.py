@@ -218,7 +218,7 @@ class Command(BaseCommand):
         self.generate_tpl_file(dstdir, 'dns-sshfp', hosts=self.hosts)
         with open(os.path.join(dstdir, 'all-accounts.json'), 'w') as f:
             data = list()
-            for user in sorted(self.users):
+            for user in self.users:
                 if user.is_not_retired():
                     active = user.has_active_password() and not user.has_expired_password()
                     data.append({'uid':user.uid, 'uidNumber':user.uidNumber, 'active':active})
