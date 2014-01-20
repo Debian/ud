@@ -30,6 +30,6 @@ setup(
     package_dir = {'ud': 'src'},
     packages = ['ud', 'ud.common', 'ud.common.management', 'ud.common.management.commands'],
     package_data = {'ud.common.management.commands': ['templates/*']},
-    data_files = [('/etc/ud', ['src/interactive.yaml', 'src/fingerd.yaml', 'src/mailgate.yaml'])],
+    data_files = [('/etc/ud', ['src/echelon.yaml', 'src/fingerd.yaml', 'src/generate.yaml', 'src/interactive.yaml', 'src/mailgate.yaml'])],
     scripts = ['src/ud'],
 )

@@ -24,6 +24,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
 from common.models import Host, Group, LdapUser as User
+from datetime import datetime, timedelta
 from mako.lookup import TemplateLookup
 from mako.template import Template
 
@@ -44,6 +45,8 @@ from StringIO import StringIO
 
 from ldap import LDAPError
 
+from _utilities import load_configuration_file
+
 # TODO check unicode handling
 class Command(BaseCommand):
     help = 'Generates, on a host-by-host basis, the set of files to be replicated.'
@@ -53,10 +56,30 @@ class Command(BaseCommand):
             default=False,
             help='force generate'
         ),
+        optparse.make_option('--config',
+            action='store',
+            default='/etc/ud/generate.yaml',
+            help='specify configuration file'
+        ),
     )
 
     def handle(self, *args, **options): # TODO load_configuration_file
         self.options = options
+        try:
+            load_configuration_file(self.options['config'])
+            if settings.config.has_key('username'):
+                if settings.config['username'].endswith(User.base_dn):
+                    settings.DATABASES['ldap']['USER'] = settings.config['username']
+                else:
+                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], User.base_dn)
+            else:
+                raise CommandError('configuration file must specify username parameter')
+            if settings.config.has_key('password'):
+                settings.DATABASES['ldap']['PASSWORD'] = settings.config['password']
+            else:
+                raise CommandError('configuration file must specify password parameter')
+        except Exception as err:
+            raise CommandError(err)
         self.dstdir = os.path.join(settings.CACHE_DIR, 'hosts')
         # TODO : create self.dstdir if it doesn"t exist
         self.tpldir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
@@ -75,31 +98,43 @@ class Command(BaseCommand):
                 with open(os.path.join(self.dstdir, 'last_update.trace'), 'w') as f:
                     self.marshall()
                     self.generate()
+                    last_generate = datetime.utcnow().strftime('%Y%m%d%H%M%S.%fZ')
+                    if not hasattr(self, 'last_file_mod') :
+                        self.last_file_mod = last_generate
                     if not hasattr(self, 'last_ldap_mod') :
-                        self.last_ldap_mod = 0
-                    f.write(yaml.dump({'last_ldap_mod': self.last_ldap_mod, 'last_generate': int(time.time())}))
+                        self.last_ldap_mod = last_generate
+                    f.write(yaml.dump({'last_file_mod': self.last_file_mod, 'last_ldap_mod': self.last_ldap_mod, 'last_generate': last_generate}))
         except Exception as err:
             raise CommandError(err)
         finally:
             lock.release()
 
     def need_update(self):
-        query = '(&(&(!(reqMod=activity-from*))(!(reqMod=activity-pgp*)))(|(reqType=add)(reqType=delete)(reqType=modify)(reqType=modrdn)))'
         try:
-            mods = connections['ldap'].cursor().connection.search_s('cn=log', ldap.SCOPE_ONELEVEL, query, ['reqEnd'])
-            self.last_ldap_mod = long(max([mod[1]['reqEnd'] for mod in mods])[0].split('.')[0])
-            try:
-                with open(os.path.join(self.dstdir, 'last_update.trace'), 'r') as f:
-                    y = yaml.safe_load(f)
-                    if y:
-                        return self.last_ldap_mod > y.get('last_ldap_mod', 0) # TODO or last_unix_mod > y.get('last_unix_mod')
-                    else:
-                        return True
-            except IOError as err:
-                if err.errno != errno.ENOENT:
-                    raise err
-        except LDAPError as err:
-            raise CommandError("Couldn't process LDAP query %s : %s" % (query, str(err)))
+            last_file_mods = [os.path.getmtime(keyring) for keyring in settings.config['keyrings']]
+            self.last_file_mod = max([datetime.fromtimestamp(last_file_mod).strftime('%Y%m%d%H%M%S.%fZ') for last_file_mod in last_file_mods])
+        except Exception as err:
+            raise CommandError(err)
+        try:
+            query = '(&(&(!(reqMod=activity-from*))(!(reqMod=activity-pgp*)))(|(reqType=add)(reqType=delete)(reqType=modify)(reqType=modrdn)))'
+            last_ldap_mods = connections['ldap'].cursor().connection.search_s('cn=log', ldap.SCOPE_ONELEVEL, query, ['reqEnd'])
+            self.last_ldap_mod = max([last_ldap_mod[1]['reqEnd'][0] for last_ldap_mod in last_ldap_mods])
+        except Exception as err:
+            raise CommandError(err)
+        try:
+            with open(os.path.join(self.dstdir, 'last_update.trace'), 'r') as f:
+                y = yaml.safe_load(f)
+                if y:
+                    if self.last_file_mod > y.get('last_file_mod', (datetime.utcnow() - timedelta(weeks=52)).strftime('%Y%m%d%H%M%S.%fZ')):
+                        return True # a keyring entry has been updated since last run
+                    if self.last_ldap_mod > y.get('last_ldap_mod', (datetime.utcnow() - timedelta(weeks=52)).strftime('%Y%m%d%H%M%S.%fZ')):
+                        return True # an ldapdb entry has been updated since last run
+                    return False
+        except IOError as err:
+            if err.errno != errno.ENOENT:
+                raise CommandError(err)
+        except Exception as err:
+            raise CommandError(err)
         return True
         
     def marshall(self):
@@ -173,7 +208,7 @@ class Command(BaseCommand):
         self.generate_tpl_file(dstdir, 'mail-rhsbl', users=self.users)
         self.generate_tpl_file(dstdir, 'mail-whitelist', users=self.users)
         self.generate_tpl_file(dstdir, 'web-passwords', users=self.users)
-        self.generate_tpl_file(dstdir, 'voip-passwords', users=self.users)
+        self.generate_tpl_file(dstdir, 'rtc-passwords', users=self.users)
         self.generate_tpl_file(dstdir, 'forward-alias', users=self.users)
         self.generate_tpl_file(dstdir, 'markers', users=self.users)     # FIXME double check user filter
         self.generate_tpl_file(dstdir, 'ssh_known_hosts', hosts=self.hosts)
@@ -216,7 +251,7 @@ class Command(BaseCommand):
         self.link(self.dstdir, dstdir, 'mail-rhsbl')
         self.link(self.dstdir, dstdir, 'mail-whitelist')
         self.link(self.dstdir, dstdir, 'web-passwords', ('WEB-PASSWORDS' in host.exportOptions))
-        self.link(self.dstdir, dstdir, 'voip-passwords', ('VOIP-PASSWORDS' in host.exportOptions))
+        self.link(self.dstdir, dstdir, 'rtc-passwords', ('RTC-PASSWORDS' in host.exportOptions))
         self.link(self.dstdir, dstdir, 'forward-alias')
         self.link(self.dstdir, dstdir, 'markers', ('NOMARKERS' not in host.exportOptions))
         self.link(self.dstdir, dstdir, 'ssh_known_hosts')               # FIXME handle purpose

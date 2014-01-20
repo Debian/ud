@@ -1,0 +1,4 @@
+username: 'username'
+password: 'password'
+keyrings:
+  - "/usr/share/keyrings/debian-keyring.gpg"
