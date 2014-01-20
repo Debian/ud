@@ -16,15 +16,16 @@
 #   Boston MA  02110-1301
 #   USA
 #
-# Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
+# Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Martin Zobel-Helas <zobel@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
-from common.models import Host, Group, LdapUser as User
+from common.models import DebianHost, DebianGroup, DebianRole, DebianUser
 from datetime import datetime, timedelta
+from itertools import chain
 from mako.lookup import TemplateLookup
 from mako.template import Template
 
@@ -68,10 +69,10 @@ class Command(BaseCommand):
         try:
             load_configuration_file(self.options['config'])
             if settings.config.has_key('username'):
-                if settings.config['username'].endswith(User.base_dn):
+                if settings.config['username'].endswith(DebianUser.base_dn):
                     settings.DATABASES['ldap']['USER'] = settings.config['username']
                 else:
-                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], User.base_dn)
+                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], DebianUser.base_dn)
             else:
                 raise CommandError('configuration file must specify username parameter')
             if settings.config.has_key('password'):
@@ -151,9 +152,9 @@ class Command(BaseCommand):
                     _gids |= recurse(_gid2group[gid].subGroup, hostname)
             return _gids
 
-        self.hosts = Host.objects.all()
-        self.groups = Group.objects.all()
-        self.users = User.objects.all()
+        self.hosts = DebianHost.objects.all()
+        self.groups = DebianGroup.objects.all()
+        self.users = list(chain(DebianUser.objects.all(), DebianRole.objects.all()))
 
         _gid2group = dict()
         _gidNumber2gid = dict()
@@ -217,7 +218,7 @@ class Command(BaseCommand):
         self.generate_tpl_file(dstdir, 'dns-sshfp', hosts=self.hosts)
         with open(os.path.join(dstdir, 'all-accounts.json'), 'w') as f:
             data = list()
-            for user in self.users:
+            for user in sorted(self.users):
                 if user.is_not_retired():
                     active = user.has_active_password() and not user.has_expired_password()
                     data.append({'uid':user.uid, 'uidNumber':user.uidNumber, 'active':active})
@@ -263,6 +264,8 @@ class Command(BaseCommand):
 
         tf = tarfile.open(name=os.path.join(self.dstdir, host.hostname, 'ssh-keys.tar.gz'), mode='w:gz')
         for user in host.users:
+            if not hasattr(user, 'sshRSAAuthKey'): # xxx handle DebianRole
+                continue
             to = tarfile.TarInfo(name=user.uid)
             contents = '\n'.join(user.sshRSAAuthKey) + '\n'             # FIXME handle allowed_hosts
             to.uid = 0

@@ -16,13 +16,13 @@
 #   Boston MA  02110-1301
 #   USA
 #
-# Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
+# Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management.base import BaseCommand, CommandError
-from common.models import LdapUser as User
+from common.models import DebianUser
 
 import getpass
 import ldap
@@ -71,11 +71,11 @@ class Command(BaseCommand):
 
         if not options['binddn']:
             options['binddn'] = getpass.getuser()
-        if options['binddn'].endswith(User.base_dn):
+        if options['binddn'].endswith(DebianUser.base_dn):
             settings.DATABASES['ldap']['USER'] = options['binddn']
             logged_in_uid = options['binddn'].split(',')[0].split('=')[0]
         else:
-            settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (options['binddn'], User.base_dn)
+            settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (options['binddn'], DebianUser.base_dn)
             logged_in_uid = options['binddn']
 
         if not options['passwd']:
@@ -89,8 +89,8 @@ class Command(BaseCommand):
         settings.DATABASES['ldap']['PASSWORD'] = options['passwd']
 
         try:
-            logged_in_user = User.objects.get(uid=logged_in_uid)
-            looked_up_user = User.objects.get(uid=looked_up_uid)
+            logged_in_user = DebianUser.objects.get(uid=logged_in_uid)
+            looked_up_user = DebianUser.objects.get(uid=looked_up_uid)
             if logged_in_user.dn is looked_up_user.dn or 'adm' in logged_in_user.supplementaryGid:
                 Handler(self.stdout, looked_up_user, logged_in_user).cmdloop()
             else:

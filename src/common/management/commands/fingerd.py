@@ -16,12 +16,12 @@
 #   Boston MA  02110-1301
 #   USA
 #
-# Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
+# Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from common.models import LdapUser as User
+from common.models import DebianUser
 
 import daemon
 import io
@@ -42,7 +42,7 @@ class FingerHandler(SocketServer.StreamRequestHandler):
             uid = self.rfile.readline(512).strip()
             if uid.endswith('/key'):
                 uid = uid[:-4]
-                user = User.objects.get(uid=uid)
+                user = DebianUser.objects.get(uid=uid)
                 if user:
                     asc = user.key
                     if asc:
@@ -53,7 +53,7 @@ class FingerHandler(SocketServer.StreamRequestHandler):
                 else:
                     raise Exception('ldap entry for "%s" not found at db.debian.org\n' % (uid))
             else:
-                user = User.objects.get(uid=uid)
+                user = DebianUser.objects.get(uid=uid)
                 if user:
                     fd.write(u'%s\n' % (user.dn))
                     fd.write(u'First name: %s\n' % (user.cn))
@@ -98,10 +98,10 @@ class Command(BaseCommand):
         try:
             load_configuration_file(self.options['config'])
             if settings.config.has_key('username'):
-                if settings.config['username'].endswith(User.base_dn):
+                if settings.config['username'].endswith(DebianUser.base_dn):
                     settings.DATABASES['ldap']['USER'] = settings.config['username']
                 else:
-                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], User.base_dn)
+                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], DebianUser.base_dn)
             else:
                 raise CommandError('configuration file must specify username parameter')
             if settings.config.has_key('password'):

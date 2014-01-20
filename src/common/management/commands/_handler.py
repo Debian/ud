@@ -16,7 +16,7 @@
 #   Boston MA  02110-1301
 #   USA
 #
-# Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
+# Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 
 from django.core.management.base import BaseCommand, CommandError
 from django.core.exceptions import ObjectDoesNotExist, ValidationError

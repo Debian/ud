@@ -7,20 +7,27 @@
 % for i, host in enumerate(hosts):
 %     if host.hostname and host.hostname.endswith('debian.org'):
 %         for ipHostNumber in host.ipHostNumber:
-${host.hostname}. ${host.dnsTTL or '1h'} IN ${ 'A' if IPy.IP(ipHostNumber).version() == 4 else 'AAAA' } ${ipHostNumber}
+${host.hostname}.	${host.dnsTTL or '1h'}	IN	${ 'A' if IPy.IP(ipHostNumber).version() == 4 else 'AAAA' }	${ipHostNumber}
 %         endfor
 %         for sshRSAHostKey in host.sshRSAHostKey:
-${host.hostname}. ${host.dnsTTL or '1h'} IN SSHFP 1 ${hashlib.new('sha1', base64.decodestring(sshRSAHostKey.split(' ')[1])).hexdigest()}
+${host.hostname}.	${host.dnsTTL or '1h'}	IN	SSHFP	1 1 ${hashlib.new('sha1', base64.decodestring(sshRSAHostKey.split(' ')[1])).hexdigest()}
 %         endfor
 %         if host.architecture:
 %             if host.machine:
-${host.hostname}. ${host.dnsTTL or '1h'} IN HINFO "${host.architecture} ${host.machine}" "Debian GNU/Linux"
+${host.hostname}.	${host.dnsTTL or '1h'}	IN	HINFO	"${host.architecture} ${host.machine}" "Debian GNU/Linux"
 %             else:
-${host.hostname}. ${host.dnsTTL or '1h'} IN HINFO "${host.architecture}" "Debian GNU/Linux"
+${host.hostname}.	${host.dnsTTL or '1h'}	IN	HINFO	"${host.architecture}" "Debian GNU/Linux"
 %             endif
 %         endif
-%         for mXRecord in host.mXRecord:
-${host.hostname}. ${host.dnsTTL or '1h'} IN MX ${mXRecord}
-%         endfor
+%         if host.mXRecord:
+%             for mXRecord in host.mXRecord:
+%                 if mXRecord == '0 INCOMING-MX':
+${host.hostname}.	${host.dnsTTL or '1h'}	IN	MX	10 mailly.debian.org.
+${host.hostname}.	${host.dnsTTL or '1h'}	IN	MX	10 muffat.debian.org.
+%                 else:
+${host.hostname}.	${host.dnsTTL or '1h'}	IN	MX	${mXRecord}
+%                 endif
+%             endfor
+%         endif
 %     endif
 % endfor

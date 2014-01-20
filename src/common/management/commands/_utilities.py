@@ -16,12 +16,12 @@
 #   Boston MA  02110-1301
 #   USA
 #
-# Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
+# Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
 
 from django.conf import settings
 from django.core.management.base import CommandError
-from common.models import LdapUser as User
+from common.models import DebianUser
 
 import email
 import email.utils
@@ -123,7 +123,7 @@ def verify_message(message):
 
 def get_user_from_fingerprint(fingerprint):
     try:
-        result = User.objects.filter(keyFingerPrint=fingerprint)
+        result = DebianUser.objects.filter(keyFingerPrint=fingerprint)
         if len(result) == 1:
             return result[0]
     except:
@@ -144,15 +144,15 @@ def get_user_from_headers(message):
                 if y.endswith('@debian.org'):
                     uid = y.split('@')[0]
         if emailForward:
-            result = User.objects.filter(emailForward=emailForward)
+            result = DebianUser.objects.filter(emailForward=emailForward)
             if len(result) == 1:
                 return result[0]
         if humanName:
-            result = User.objects.filter(cn=humanName.first,sn=humanName.last)
+            result = DebianUser.objects.filter(cn=humanName.first,sn=humanName.last)
             if len(result) == 1:
                 return result[0]
         if uid:
-            result = User.objects.filter(uid=uid)
+            result = DebianUser.objects.filter(uid=uid)
             if len(result) == 1:
                 return result[0]
     except:

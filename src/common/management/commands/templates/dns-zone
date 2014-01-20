@@ -1,10 +1,14 @@
 ## vim: set ft=mako:
 % for i, user in enumerate(users):
 %     if user.is_not_retired() and user.is_not_guest_account() and user.has_active_password():
+%         if hasattr(user, 'keyFingerPrint'):
 ${user.uid}._pka IN TXT "v=pka1\;fpr=${user.keyFingerPrint}\;uri=finger:${user.uid}/key@db.debian.org"
+%         endif
 %         if user.dnsZoneEntry:
 %             for label in set([x.split(' ')[0] for x in user.dnsZoneEntry]):
+%             if hasattr(user, 'keyFingerPrint'):
 ${label} IN RP ${user.uid}.debian.org. ${user.uid}._pka.debian.org.
+%             endif
 %             endfor
 %             for dnsZoneEntry in user.dnsZoneEntry:
 ${dnsZoneEntry}

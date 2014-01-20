@@ -16,12 +16,12 @@
 #   Boston MA  02110-1301
 #   USA
 #
-# Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
+# Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from common.models import LdapUser as User, ReplayCache
+from common.models import DebianUser, ReplayCache
 
 import base64
 import email
@@ -71,10 +71,10 @@ class Command(BaseCommand):
         try:
             load_configuration_file(self.options['config'])
             if settings.config.has_key('username'):
-                if settings.config['username'].endswith(User.base_dn):
+                if settings.config['username'].endswith(DebianUser.base_dn):
                     settings.DATABASES['ldap']['USER'] = settings.config['username']
                 else:
-                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], User.base_dn)
+                    settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], DebianUser.base_dn)
             else:
                 raise CommandError('configuration file must specify username parameter')
             if settings.config.has_key('password'):

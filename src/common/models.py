@@ -16,7 +16,7 @@
 #   Boston MA  02110-1301
 #   USA
 #
-# Copyright (C) 2014 Luca Filipozzi <lfilipoz@debian.org>
+# Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
 
 from django.conf import settings
@@ -49,6 +49,35 @@ from IPy import IP
 from M2Crypto import RSA, m2
 
 thismodule = sys.modules[__name__]
+
+def DecDegree(Posn, Anon=False): # FIXME ick... replace with geopy?
+    Parts = re.match('[-+]?(\d*)\\.?(\d*)',Posn).groups();
+    Val = float(Posn);
+
+    if (abs(Val) >= 1806060.0):
+        return 'ERROR'
+
+    # Val is in DGMS
+    if abs(Val) >= 18060.0 or len(Parts[0]) > 5:
+        Val = Val/100.0
+        Secs = Val - long(Val)
+        Val = long(Val)/100.0
+        Min = Val - long(Val)
+        Val = long(Val) + (Min*100.0 + Secs*100.0/60.0)/60.0
+
+    # Val is in DGM
+    elif abs(Val) >= 180 or len(Parts[0]) > 3:
+        Val = Val/100.0
+        Min = Val - long(Val)
+        Val = long(Val) + Min*100.0/60.0
+
+    if Anon != 0:
+        Str = "%3.2f"%(Val)
+    else:
+        Str = str(Val)
+    if Val >= 0:
+        return "+" + Str
+    return Str
 
 def validate_dns_labels(val):
     disallowed = re.compile('[^_A-Z\d-]', re.IGNORECASE)
@@ -103,7 +132,7 @@ def validate_accountStatus(val):
 
 def validate_allowedHost(val):
     try:
-        if not Host.objects.filter(hostname=val):
+        if not DebianHost.objects.filter(hostname=val):
             raise
     except:
         ValidationError('unknown host')
@@ -225,7 +254,7 @@ def validate_gender(val):
 
 def validate_gidNumber(val):
     try:
-        if val not in [65534] and not Group.objects.filter(gidNumber__exact=val):
+        if val not in [65534] and not DebianGroup.objects.filter(gidNumber__exact=val):
             raise
     except:
         raise ValidationError('unknown group')
@@ -271,7 +300,7 @@ def validate_labeledURI(val):
     return # TODO
 
 def validate_latitude(val):
-    return # TODO
+    return # TODO otherwise have to handle poor quality data (see DecDegree)
 
 def validate_loginShell(val):
     try:
@@ -284,7 +313,7 @@ def validate_loginShell(val):
         raise ValidationError('value is not a valid login shell')
 
 def validate_longitude(val):
-    return # TODO
+    return # TODO otherwise have to handle poor quality data (see DecDegree)
 
 def validate_mailCallout(val):
     validator = (
@@ -388,7 +417,7 @@ def validate_sshRSAAuthKey(val, mode='update'):
     try:
         validator = update if mode is 'update' else delete
         tokens = validator.parseString(val)
-        if tokens[0] and not set(tokens[0]).issubset(set([x.hostname for x in Host.objects.all()])):
+        if tokens[0] and not set(tokens[0]).issubset(set([x.hostname for x in DebianHost.objects.all()])):
             raise ValidationError('unknown host in allowed_hosts')
         validate_sshRSAAuthKey_key(tokens[3])
         return tokens
@@ -438,9 +467,9 @@ def validate_supplementaryGid(val):
     try:
         if '@' in val:
             (val,hostname) = val.split('@', 1)
-            if not Host.objects.filter(hostname=hostname):
+            if not DebianHost.objects.filter(hostname=hostname):
                 raise
-        Group.objects.get(gid__exact=val)
+        DebianGroup.objects.get(gid__exact=val)
     except:
         raise ValidationError('not a valid group')
 
@@ -454,27 +483,21 @@ def validate_webPassword(val):
     return # TODO
 
 
-class Host(ldapdb.models.Model):
-    base_dn = 'ou=hosts,dc=debian,dc=org'
-    object_classes = ['debianServer']
+class __LdapDebianServer(ldapdb.models.Model):
+    # objectclass ( 1.3.6.1.4.1.9586.100.4.3.2 NAME 'debianServer'
+    #     DESC 'Internet-connected server associated with Debian'
+    #     SUP top STRUCTURAL
+    #     MUST ( host $ hostname )
+    #     MAY (
+    #         c $ access $ admin $ architecture $ bandwidth $ description $
+    #         disk $ distribution $ l $ machine $ memory $ sponsor $
+    #         sponsor-admin $ status $ physicalHost $ ipHostNumber $ dnsTTL $
+    #         sshRSAHostKey $ purpose $ allowedGroups $ exportOptions $
+    #         MXRecord $ sshdistAuthKeysHost
+    #     )
+    # )
 
-    allowedGroups               = ListField(db_column='allowedGroups',
-                                    validators=[])                                      # TODO validator
-    allowedGroups.permissions   = { 'self': 'none', 'root': 'read' }
-
-    architecture                = CharField(db_column='architecture',
-                                    validators=[])                                      # TODO validator
-    architecture.permissions    = { 'self': 'none', 'root': 'read' }
-
-    dnsTTL                      = CharField(db_column='dnsTTL',
-                                    validators=[])                                      # TODO validator
-    dnsTTL.permissions          = { 'self': 'none', 'root': 'read' }
-
-    exportOptions               = ListField(db_column='exportOptions',
-                                    validators=[])                                      # TODO validator
-    exportOptions.permissions   = { 'self': 'none', 'root': 'read' }
-
-    hid                         = CharField(db_column='host',
+    hid                         = CharField(db_column='host', # XXX host
                                     validators=[], primary_key=True)                    # TODO validator
     hid.permissions             = { 'self': 'none', 'root': 'read' }
 
@@ -482,32 +505,53 @@ class Host(ldapdb.models.Model):
                                     validators=[])                                      # TODO validator
     hostname.permissions        = { 'self': 'none', 'root': 'read' }
 
-    ipHostNumber                = ListField(db_column='ipHostNumber',
+    architecture                = CharField(db_column='architecture',
                                     validators=[])                                      # TODO validator
-    ipHostNumber.permissions    = { 'self': 'none', 'root': 'read' }
+    architecture.permissions    = { 'self': 'none', 'root': 'read' }
 
     machine                     = CharField(db_column='machine',
                                     validators=[])                                      # TODO validator
     machine.permissions         = { 'self': 'none', 'root': 'read' }
 
-    mXRecord                    = ListField(db_column='mXRecord',
+    ipHostNumber                = ListField(db_column='ipHostNumber',
                                     validators=[])                                      # TODO validator
-    mXRecord.permissions        = { 'self': 'none', 'root': 'read' }
+    ipHostNumber.permissions    = { 'self': 'none', 'root': 'read' }
+
+    dnsTTL                      = CharField(db_column='dnsTTL',
+                                    validators=[])                                      # TODO validator
+    dnsTTL.permissions          = { 'self': 'none', 'root': 'read' }
 
     sshRSAHostKey               = ListField(db_column='sshRSAHostKey',
                                     validators=[], null=True, blank=True)               # TODO validator
     sshRSAHostKey.permissions   = { 'self': 'none', 'root': 'read' }
 
-    def __str__(self):
-        return self.hid
+    purpose                     = ListField(db_column='purpose',
+                                    validators=[], null=True, blank=True)               # TODO validator
+    purpose.permissions         = { 'self': 'none', 'root': 'read' }
 
-    def __unicode__(self):
-        return self.hid
+    allowedGroups               = ListField(db_column='allowedGroups',
+                                    validators=[])                                      # TODO validator
+    allowedGroups.permissions   = { 'self': 'none', 'root': 'read' }
+
+    exportOptions               = ListField(db_column='exportOptions',
+                                    validators=[])                                      # TODO validator
+    exportOptions.permissions   = { 'self': 'none', 'root': 'read' }
+
+    mXRecord                    = ListField(db_column='mXRecord',
+                                    validators=[])                                      # TODO validator
+    mXRecord.permissions        = { 'self': 'none', 'root': 'read' }
+
+    class Meta:
+        abstract = True
 
 
-class Group(ldapdb.models.Model):
-    base_dn = 'ou=users,dc=debian,dc=org'
-    object_classes = ['debianGroup']
+class __LdapDebianGroup(ldapdb.models.Model):
+    # objectclass ( 1.3.6.1.4.1.9586.100.4.1.2 NAME 'debianGroup'
+    #     SUP top STRUCTURAL
+    #     DESC 'attributes used for Debian groups'
+    #     MUST ( gid $ gidNumber)
+    #     MAY ( description $ subGroup $ accountStatus )
+    # )
 
     gid                         = CharField(db_column='gid',
                                     validators=[], primary_key=True)                    # TODO validator
@@ -522,14 +566,11 @@ class Group(ldapdb.models.Model):
                                     validators=[])                                      # TODO validator
     subGroup.permissions        = { 'self': 'none', 'root': 'read' }
 
-    def __str__(self):
-        return self.gid
-
-    def __unicode__(self):
-        return self.gid
+    class Meta:
+        abstract = True
 
 
-class LdapShadowAccount(ldapdb.models.Model):
+class __LdapShadowAccount(ldapdb.models.Model):
     # objectclass ( 1.3.6.1.1.1.2.1 NAME 'shadowAccount'
     #     DESC 'Additional attributes for shadow passwords'
     #     SUP top AUXILIARY
@@ -575,7 +616,7 @@ class LdapShadowAccount(ldapdb.models.Model):
         abstract = True
 
 
-class LdapPerson(ldapdb.models.Model):
+class __LdapPerson(ldapdb.models.Model):
     # objectclass ( 2.5.6.6 NAME 'person'
     #     DESC 'RFC2256: a person'
     #     SUP top STRUCTURAL
@@ -601,7 +642,7 @@ class LdapPerson(ldapdb.models.Model):
         abstract = True
 
 
-class LdapOrganizationalPerson(LdapPerson):
+class __LdapOrganizationalPerson(__LdapPerson):
     # objectclass ( 2.5.6.7 NAME 'organizationalPerson'
     #     DESC 'RFC2256: an organizational person'
     #     SUP person STRUCTURAL
@@ -640,7 +681,7 @@ class LdapOrganizationalPerson(LdapPerson):
         abstract = True
 
 
-class LdapInetOrgPerson(LdapOrganizationalPerson):
+class __LdapInetOrgPerson(__LdapOrganizationalPerson):
     # objectclass ( 2.16.840.1.113730.3.2.2 NAME 'inetOrgPerson'
     #     DESC 'RFC2798: Internet Organizational Person'
     #     SUP organizationalPerson STRUCTURAL
@@ -672,7 +713,7 @@ class LdapInetOrgPerson(LdapOrganizationalPerson):
         abstract = True
 
 
-class LdapDebianAccount(ldapdb.models.Model):
+class __LdapDebianAccount(ldapdb.models.Model):
     # objectclass ( 1.3.6.1.4.1.9586.100.4.1.1 NAME 'debianAccount'
     #     DESC 'Abstraction of an account with POSIX attributes and UTF8 support'
     #     SUP top AUXILIARY
@@ -730,7 +771,7 @@ class LdapDebianAccount(ldapdb.models.Model):
         abstract = True
 
 
-class LdapDebianDeveloper(ldapdb.models.Model):
+class __LdapDebianDeveloper(ldapdb.models.Model):
     # objectclass ( 1.3.6.1.4.1.9586.100.4.3.1 NAME 'debianDeveloper'
     #     DESC 'additional account attributes used by Debian'
     #     SUP top AUXILIARY
@@ -891,10 +932,130 @@ class LdapDebianDeveloper(ldapdb.models.Model):
         abstract = True
 
 
-class LdapUser(LdapInetOrgPerson, LdapDebianAccount, LdapShadowAccount, LdapDebianDeveloper):
-    object_classes = ['debianDeveloper']
+class __LdapAccount(ldapdb.models.Model):
+    # objectclass ( 0.9.2342.19200300.100.4.5 NAME 'account'
+    #     SUP top STRUCTURAL
+    #     MUST ( userid )
+    #     MAY (
+    #         description $ seeAlso $ localityName $
+    #         organizationName $ organizationalUnitName $ host
+    #     )
+    # )
+
+    class Meta:
+        abstract = True
+
+
+class __LdapDebianRoleAccount(__LdapAccount):
+    # objectclass ( 1.3.6.1.4.1.9586.100.4.3.3 NAME 'debianRoleAccount'
+    #     DESC 'Abstraction of an account with POSIX attributes and UTF8 support'
+    #     SUP account STRUCTURAL
+    #     MAY (
+    #         emailForward $ supplementaryGid $ allowedHost $ labeledURI $
+    #         mailCallout $ mailGreylisting $ mailRBL $ mailRHSBL $
+    #         mailWhitelist $ dnsZoneEntry $ mailContentInspectionAction $
+    #         bATVToken $ mailDefaultOptions
+    #     )
+    # )
+
+    emailForward                            = CharField(db_column='emailForward',
+                                                validators=[validate_emailForward], null=True, blank=True)
+    emailForward.permissions                = { 'self': 'write', 'root': 'write' }
+
+    supplementaryGid                        = ListField(db_column='supplementaryGid',
+                                                validators=[validate_supplementaryGid])
+    supplementaryGid.permissions            = { 'self': 'read', 'root': 'write' }
+
+    allowedHost                             = ListField(db_column='allowedHost',
+                                                validators=[validate_allowedHost])
+    allowedHost.permissions                 = { 'self': 'none', 'root': 'write' }
+
+    labeledURI                              = CharField(db_column='labeledURI',
+                                                validators=[validate_labeledURI], null=True, blank=True)
+    labeledURI.permissions                  = { 'self': 'write', 'root': 'write' }
+
+    mailCallout                             = CharField(db_column='mailCallout',
+                                                validators=[validate_mailCallout], null=True, blank=True)
+    mailCallout.permissions                 = { 'self': 'write', 'root': 'write' }
+
+    mailGreylisting                         = CharField(db_column='mailGreylisting',
+                                                validators=[validate_mailGreylisting], null=True, blank=True)
+    mailGreylisting.permissions             = { 'self': 'write', 'root': 'write' }
+
+    mailRBL                                 = ListField(db_column='mailRBL',
+                                                validators=[validate_mailRBL], null=True, blank=True)
+    mailRBL.permissions                     = { 'self': 'write', 'root': 'write' }
+
+    mailRHSBL                               = ListField(db_column='mailRHSBL',
+                                                validators=[validate_mailRHSBL], null=True, blank=True)
+    mailRHSBL.permissions                   = { 'self': 'write', 'root': 'write' }
+
+    mailWhitelist                           = ListField(db_column='mailWhitelist',
+                                                validators=[validate_mailWhitelist], null=True, blank=True)
+    mailWhitelist.permissions               = { 'self': 'write', 'root': 'write' }
+
+    dnsZoneEntry                            = ListField(db_column='dnsZoneEntry',
+                                                validators=[validate_dnsZoneEntry])
+    dnsZoneEntry.permissions                = { 'self': 'write', 'root': 'write' }
+
+    mailContentInspectionAction             = CharField(db_column='mailContentInspectionAction',
+                                                validators=[validate_mailContentInspectionAction], null=True, blank=True)
+    mailContentInspectionAction.permissions = { 'self': 'write', 'root': 'write' }
+
+    bATVToken                               = CharField(db_column='bATVToken',
+                                                validators=[validate_bATVToken], null=True, blank=True)
+    bATVToken.permissions                   = { 'self': 'write', 'root': 'write' }
+
+    mailDefaultOptions                      = CharField(db_column='mailDefaultOptions',
+                                                validators=[validate_mailDefaultOptions], null=True, blank=True)
+    mailDefaultOptions.permissions          = { 'self': 'write', 'root': 'write' }
+
+    class Meta:
+        abstract = True
+
+
+class DebianHost(__LdapDebianServer):
+    object_classes = ['debianServer']
+    base_dn = 'ou=hosts,dc=debian,dc=org'
+
+    def __str__(self):
+        return self.hid
+
+    def __unicode__(self):
+        return self.hid
+
+    def _get_hostnames(self):
+        PurposeHostField = re.compile(r".*\[\[([\*\-]?[a-z0-9.\-]*)(?:\|.*)?\]\]")
+        hostnames = [self.hostname]
+        if self.hostname.endswith('.debian.org'):
+            hostnames.append(self.hostname[:-len('.debian.org')])
+        for purpose in self.purpose:
+            m = PurposeHostField.match(purpose)
+            if m:
+               m = m.group(1)
+               if m.startswith('*'):
+                  continue # we ignore [[*..]] entries
+               if m.startswith('-'):
+                  m = m[1:]
+               if m:
+                  hostnames.append(m)
+                  if m.endswith('.debian.org'):
+                     hostnames.append(m[:-len('.debian.org')])
+        return hostnames
+    hostnames = property(_get_hostnames)
+
+class DebianGroup(__LdapDebianGroup):
+    object_classes = ['debianGroup']
     base_dn = 'ou=users,dc=debian,dc=org'
 
+    def __str__(self):
+        return self.gid
+
+    def __unicode__(self):
+        return self.gid
+
+
+class __BaseClass(object):
     def __str__(self):
         return self.uid
 
@@ -944,7 +1105,7 @@ class LdapUser(LdapInetOrgPerson, LdapDebianAccount, LdapShadowAccount, LdapDebi
         label = '%s ' % (tokens[0])   # "foo " the trailing space is a guard
         query = ' '.join(tokens[0:3]) # "foo IN A"
         new_value = ' '.join(tokens)  # "foo IN A 1.2.3.4"
-        users = User.objects.filter(dnsZoneEntry__startswith=label)
+        users = DebianUser.objects.filter(dnsZoneEntry__startswith=label)
         if len(users) == 0: # no user owns any resource record for the label
             self.dnsZoneEntry.append(new_value)
         if len(users) == 1: # one user owns resource record(s) for the label
@@ -1004,10 +1165,10 @@ class LdapUser(LdapInetOrgPerson, LdapDebianAccount, LdapShadowAccount, LdapDebi
             raise ValidationError('field cannot be updated: multiple entries exist!')
 
     def is_active(self):
-        return self.is_not_retired() and len(self.keyFingerPrint)
+        return self.is_not_retired() and hasattr(self, 'keyFingerPrint') and len(self.keyFingerPrint)
 
     def is_retired(self):
-        if self.accountStatus:
+        if hasattr(self, 'accountStatus') and self.accountStatus:
             parts = self.accountStatus.split()
             status = parts[0]
             if status == 'inactive':
@@ -1138,6 +1299,23 @@ class LdapUser(LdapInetOrgPerson, LdapDebianAccount, LdapShadowAccount, LdapDebi
                     errors.append(json.dumps([fieldname, value, str(err)]))
         if errors:
             raise ValidationError(errors)
+
+
+class DebianUser(__LdapInetOrgPerson, __LdapDebianAccount, __LdapShadowAccount, __LdapDebianDeveloper, __BaseClass):
+    object_classes = ['debianDeveloper']
+    base_dn = 'ou=users,dc=debian,dc=org'
+
+    def _get_latitude_as_decdegree(self): # FIXME ick ... bad data in, bad data out
+        return DecDegree(self.latitude, True)
+    latitude_as_decdegree = property(_get_latitude_as_decdegree)
+
+    def _get_longitude_as_decdegree(self): # FIXME ick ... bad data in, bad data out
+        return DecDegree(self.longitude, True)
+    longitude_as_decdegree = property(_get_longitude_as_decdegree)
+
+class DebianRole(__LdapDebianAccount, __LdapShadowAccount, __LdapDebianRoleAccount, __BaseClass):
+    object_classes = ['debianRoleAccount']
+    base_dn = 'ou=users,dc=debian,dc=org'
 
 
 class ReplayCache(models.Model):

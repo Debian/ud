@@ -16,13 +16,13 @@
 #   Boston MA  02110-1301
 #   USA
 #
-# Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
+# Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.management.base import BaseCommand, CommandError
-from common.models import Host, Group, LdapUser as User
+from common.models import DebianHost, DebianGroup, DebianRole, DebianUser
 
 import getpass
 import optparse
@@ -64,11 +64,11 @@ class Command(BaseCommand):
 
         if not options['binddn']:
             options['binddn'] = getpass.getuser()
-        if options['binddn'].endswith(User.base_dn):
+        if options['binddn'].endswith(DebianUser.base_dn):
             settings.DATABASES['ldap']['USER'] = options['binddn']
             logged_in_uid = options['binddn'].split(',')[0].split('=')[0]
         else:
-            settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (options['binddn'], User.base_dn)
+            settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (options['binddn'], DebianUser.base_dn)
             logged_in_uid = options['binddn']
 
         if not options['passwd']:
@@ -82,19 +82,19 @@ class Command(BaseCommand):
         settings.DATABASES['ldap']['PASSWORD'] = options['passwd']
 
         try:
-            logged_in_user = User.objects.get(uid=logged_in_uid)
+            logged_in_user = DebianUser.objects.get(uid=logged_in_uid)
             self.error = False
             if args:
                 for looked_up_uid in args:
                     try:
-                        looked_up_user = User.objects.get(uid__exact=looked_up_uid)
+                        looked_up_user = DebianUser.objects.get(uid__exact=looked_up_uid)
                         self.validate_user(looked_up_user)
                     except ObjectDoesNotExist:
                         self.error = True
                         if options['verbosity'] > '0':
                             self.stdout.write('nak:%s:uid does not exist\n' % (uid))
             else:
-                looked_up_users = User.objects.all()
+                looked_up_users = DebianUser.objects.all()
                 for looked_up_user in looked_up_users:
                     self.validate_user(looked_up_user)
             if self.error:
