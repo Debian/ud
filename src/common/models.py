@@ -16,7 +16,7 @@
 #   Boston MA  02110-1301
 #   USA
 #
-# Copyright (C) 2013 Luca Filipozzi <lfilipoz@debian.org>
+# Copyright (C) 2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
 
 from django.conf import settings
@@ -35,6 +35,7 @@ import email.utils
 import json
 import hashlib
 import os
+import pycountry
 import pyme.core
 import pyparsing
 import re
@@ -47,14 +48,6 @@ import time
 from IPy import IP
 from M2Crypto import RSA, m2
 
-import logging
-class NullHandler(logging.Handler):
-    def emit(self, record):
-        pass
-h = NullHandler()
-logging.getLogger('pycountry.db').addHandler(h)
-import pycountry
-
 thismodule = sys.modules[__name__]
 
 def validate_dns_labels(val):
@@ -66,23 +59,21 @@ def validate_dns_labels(val):
             raise ValidationError('label in name is too long')
         if label.startswith('-') or label.endswith('-'):
             raise ValidationError('label in name begins/ends with hyphen')
-        if label.endswith('_'):
-            raise ValidationError('label in name ends with underscore')
-        if label.contains('_') and not label.startswith('_'):
+        if '_' in label[1:]:
             raise ValidationError('label in name contains an underscore')
         if disallowed.search(label):
             raise ValidationError('label in name contains invalid characters')
 
-# fully qualified domain name
 def validate_fqdn(val):
+    # fqdn - fully qualified domain name
     if len(val) > 255:
         raise ValidationError('name is too long')
     if not val.endswith('.'):
         raise ValidationError('name does not end in .')
     validate_dns_labels(val[:-1])
-    
-# partially qualified domain name
+
 def validate_pqdn(val):
+    # pqdn - partially qualified domain name
     if len(val) > (255 - len('.debian.net.')):
         raise ValidationError('label is too long')
     if val.endswith('.'):
@@ -101,11 +92,14 @@ def validate_ipv6(val):
     if address.version() != 6:
         raise ValidationError('value is not an IPv6 address')
 
-def validate_activityFrom(val): return # TODO
+def validate_activityFrom(val):
+    return # TODO
 
-def validate_activityPGP(val): return # TODO
+def validate_activityPGP(val):
+    return # TODO
 
-def validate_accountStatus(val): return # TODO
+def validate_accountStatus(val):
+    return # TODO
 
 def validate_allowedHost(val):
     try:
@@ -130,7 +124,8 @@ def validate_c(val):
     except:
         raise ValidationError('value is not a valid ISO3166-2 country code')
 
-def validate_cn(val): return # TODO
+def validate_cn(val):
+    return # TODO
 
 def validate_dnsZoneEntry(val, mode='update'):
     # TODO ensure labels / hostnames are lower case
@@ -138,7 +133,7 @@ def validate_dnsZoneEntry(val, mode='update'):
     # TODO reimplement fqdn/pqdn/ipv4/ipv6 with pyparsing
     update = (
         pyparsing.LineStart() + pyparsing.Regex(r'(?=\w)[-\w.]+(?<![-_.])') + pyparsing.Keyword('IN') + (
-            ( pyparsing.Keyword('A') + pyparsing.Word(pyparsing.nums+'.') ) | 
+            ( pyparsing.Keyword('A') + pyparsing.Word(pyparsing.nums+'.') ) |
             ( pyparsing.Keyword('AAAA') + pyparsing.Word(pyparsing.hexnums+':') ) |
             ( pyparsing.Keyword('CNAME') + pyparsing.Regex(r'(?=\w)[-\w.]+(?<![-_])[.]') ) |
             ( pyparsing.Keyword('MX') + pyparsing.Regex(r'\d{1,5}') + pyparsing.Regex(r'[-\w.]+\.') ) |
@@ -179,18 +174,19 @@ def validate_dnsZoneEntry_IN_CNAME(name, cname):
     validate_pqdn(name)
     validate_fqdn(cname)
 
-# per RFC 974, the preference number in MX RRs is an
-# unsigned integer [0,65535], decimal representation
-# see http://tools.ietf.org/html/rfc974
 def validate_dnsZoneEntry_IN_MX(name, preference, exchange):
     validate_pqdn(name)
     if int(preference) not in range(65536):
+        # per RFC 974, the preference number in MX RRs is an unsigned
+        # integer [0,65535] in decimal representation
+        # see http://tools.ietf.org/html/rfc974
         raise ValidationError('preference %s out of range' % preference)
     validate_fqdn(exchange)
 
 def validate_dnsZoneEntry_IN_TXT(name, txtdata):
     validate_pqdn(name)
-    # no need to validate txtdata ... handled by QuotedString
+    # Do not need to validate txtdata here as it is validated by
+    # QuotedString in the calling function: validate_dnsZoneEntry.
 
 def validate_emailForward(val):
     try:
@@ -198,11 +194,11 @@ def validate_emailForward(val):
     except:
         raise ValidationError('value is not a valid for emailForward')
 
-# Let's follow the recommendations of ITU E.123 regarding international notation of telephone numbers:
-# - only spaces should be used to visually separate groups of numbers in international notation
-# - parentheses should not be used in the international notation
-# see http://en.wikipedia.org/wiki/E.123
 def validate_facsimileTelephoneNumber(val):
+    # Let's follow the recommendations of ITU E.123 regarding international notation of telephone numbers:
+    # - only spaces should be used to visually separate groups of numbers in international notation
+    # - parentheses should not be used in the international notation
+    # see http://en.wikipedia.org/wiki/E.123
     validator = (
         pyparsing.LineStart() +
         pyparsing.Word(pyparsing.nums+'+ /') +
@@ -210,11 +206,12 @@ def validate_facsimileTelephoneNumber(val):
     )
     validator.parseString(val)
 
-def validate_gecos(val): return # TODO
+def validate_gecos(val):
+    return # TODO
 
-# Let's follow the ISO 5218 standard for genders.
-# see http://en.wikipedia.org/wiki/ISO/IEC_5218
 def validate_gender(val):
+    # follow the ISO 5218 standard for genders
+    # see http://en.wikipedia.org/wiki/ISO/IEC_5218
     validator = (
         pyparsing.LineStart() + (
             pyparsing.Keyword('0') | # not known
@@ -237,7 +234,8 @@ def validate_icqUin(val):
     validator = pyparsing.LineStart() + pyparsing.Word(pyparsing.nums, min=5) + pyparsing.LineEnd()
     validator.parseString(val)
 
-def validate_ircNick(val): return # TODO
+def validate_ircNick(val):
+    return # TODO
 
 def validate_jabberJID(val):
     validator = pyparsing.LineStart() + pyparsing.Regex(r'[^<>@]+@.+') + pyparsing.LineEnd()
@@ -266,11 +264,14 @@ def validate_keyFingerPrint(val):
         if tmpdir:
             shutil.rmtree(tmpdir)
 
-def validate_l(val): return # TODO
+def validate_l(val):
+    return # TODO
 
-def validate_labeledURI(val): return # TODO
+def validate_labeledURI(val):
+    return # TODO
 
-def validate_latitude(val): return # TODO
+def validate_latitude(val):
+    return # TODO
 
 def validate_loginShell(val):
     try:
@@ -282,7 +283,8 @@ def validate_loginShell(val):
     except:
         raise ValidationError('value is not a valid login shell')
 
-def validate_longitude(val): return # TODO
+def validate_longitude(val):
+    return # TODO
 
 def validate_mailCallout(val):
     validator = (
@@ -315,7 +317,8 @@ def validate_mailDefaultOptions(val):
     )
     validator.parseString(val)
 
-def validate_mailDisableMessage(val): return # TODO
+def validate_mailDisableMessage(val):
+    return # TODO
 
 def validate_mailGreylisting(val):
     validator = (
@@ -327,17 +330,23 @@ def validate_mailGreylisting(val):
     )
     validator.parseString(val)
 
-def validate_mailRBL(val): return # TODO
+def validate_mailRBL(val):
+    return # TODO
 
-def validate_mailRHSBL(val): return # TODO
+def validate_mailRHSBL(val):
+    return # TODO
 
-def validate_mailWhitelist(val): return # TODO
+def validate_mailWhitelist(val):
+    return # TODO
 
-def validate_mn(val): return # TODO
+def validate_mn(val):
+    return # TODO
 
-def validate_privateSub(val): return # TODO
+def validate_privateSub(val):
+    return # TODO
 
-def validate_sn(val): return # TODO
+def validate_sn(val):
+    return # TODO
 
 def validate_sshRSAAuthKey(val, mode='update'):
     hostname = pyparsing.Word(pyparsing.alphanums+'-.')
@@ -359,7 +368,7 @@ def validate_sshRSAAuthKey(val, mode='update'):
     keyval = key + pyparsing.Literal('=') + pyparsing.QuotedString('"', unquoteResults=False)
     options = pyparsing.delimitedList(flag | keyval, combine=True)
     allowed_hosts = (
-        pyparsing.Suppress(pyparsing.Keyword('allowed_hosts')) + 
+        pyparsing.Suppress(pyparsing.Keyword('allowed_hosts')) +
         pyparsing.Suppress(pyparsing.Literal('=')) +
         pyparsing.Group(pyparsing.delimitedList(hostname))
     )
@@ -435,11 +444,14 @@ def validate_supplementaryGid(val):
     except:
         raise ValidationError('not a valid group')
 
-def validate_userPassword(val): return # TODO
+def validate_userPassword(val):
+    return # TODO
 
-def validate_voipPassword(val): return # TODO
+def validate_rtcPassword(val):
+    return # TODO
 
-def validate_webPassword(val): return # TODO
+def validate_webPassword(val):
+    return # TODO
 
 
 class Host(ldapdb.models.Model):
@@ -517,53 +529,162 @@ class Group(ldapdb.models.Model):
         return self.gid
 
 
-# # cf. rfc2798
-class LdapInetOrgPerson(ldapdb.models.Model):
+class LdapShadowAccount(ldapdb.models.Model):
+    # objectclass ( 1.3.6.1.1.1.2.1 NAME 'shadowAccount'
+    #     DESC 'Additional attributes for shadow passwords'
+    #     SUP top AUXILIARY
+    #     MUST uid
+    #     MAY (
+    #         userPassword $ shadowLastChange $ shadowMin $
+    #         shadowMax $ shadowWarning $ shadowInactive $
+    #         shadowExpire $ shadowFlag $ description
+    #     )
+    # )
 
-    # from organizationalPerson
+    # NOTE uid defined subsequently
 
-    # --- MUST ----
-    
-    cn                                      = CharField(db_column='cn',
-                                                validators=[validate_cn])
-    cn.permissions                          = { 'self': 'read', 'root': 'write' }
+    # NOTE userPassword defined subsequently
 
-    # --- MUST ----
+    shadowLastChange                        = IntegerField( db_column='shadowLastChange',
+                                                validators=[])
+    shadowLastChange.permissions            = { 'self': 'read', 'root': 'read' }
+
+    shadowMin                               = IntegerField( db_column='shadowMin',
+                                                validators=[])
+    shadowMin.permissions                   = { 'self': 'read', 'root': 'read' , 'root': 'read' }
+
+    shadowMax                               = IntegerField( db_column='shadowMax',
+                                                validators=[])
+    shadowMax.permissions                   = { 'self': 'read', 'root': 'read' }
+
+    shadowWarning                           = IntegerField( db_column='shadowWarning',
+                                                validators=[])
+    shadowWarning.permissions               = { 'self': 'read', 'root': 'read' }
+
+    shadowInactive                          = IntegerField( db_column='shadowInactive',
+                                                validators=[])
+    shadowInactive.permissions              = { 'self': 'read', 'root': 'read' }
+
+    shadowExpire                            = IntegerField( db_column='shadowExpire',
+                                                validators=[])
+    shadowExpire.permissions                = { 'self': 'read', 'root': 'read' }
+
+    # all other attributes not used
+
+    class Meta:
+        abstract = True
+
+
+class LdapPerson(ldapdb.models.Model):
+    # objectclass ( 2.5.6.6 NAME 'person'
+    #     DESC 'RFC2256: a person'
+    #     SUP top STRUCTURAL
+    #     MUST ( sn $ cn )
+    #     MAY ( userPassword $ telephoneNumber $ seeAlso $ description )
+    # )
 
     sn                                      = CharField(db_column='sn',
                                                 validators=[validate_sn])
     sn.permissions                          = { 'self': 'read', 'root': 'write' }
 
-    #---- MAY -----    
+    cn                                      = CharField(db_column='cn',
+                                                validators=[validate_cn])
+    cn.permissions                          = { 'self': 'read', 'root': 'write' }
+
+    # NOTE userPassword defined subsequently
+
+    # NOTE telephoneNumber defined subsequently
+
+    # all other attributes not used
+
+    class Meta:
+        abstract = True
+
+
+class LdapOrganizationalPerson(LdapPerson):
+    # objectclass ( 2.5.6.7 NAME 'organizationalPerson'
+    #     DESC 'RFC2256: an organizational person'
+    #     SUP person STRUCTURAL
+    #     MAY (
+    #         title $ x121Address $ registeredAddress $ destinationIndicator $
+    #         preferredDeliveryMethod $ telexNumber $ teletexTerminalIdentifier $
+    #         telephoneNumber $ internationaliSDNNumber $ facsimileTelephoneNumber $
+    #         street $ postOfficeBox $ postalCode $ postalAddress $
+    #         physicalDeliveryOfficeName $ ou $ st $ l
+    #     )
+    # )
+
+    # TODO telephoneNumber
+
+    # TODO telephoneNumber.permissions
 
     facsimileTelephoneNumber                = CharField(db_column='facsimileTelephoneNumber',
                                                 validators=[validate_facsimileTelephoneNumber], null=True, blank=True)
     facsimileTelephoneNumber.permissions    = { 'self': 'write', 'root': 'write' }
 
-    # localityName
-    l                                       = CharField(db_column='l',
+    # TODO postalCode
+
+    # TODO postalCode.permissions
+
+    # TODO postalAddress
+
+    # TODO postalAddress.permissions
+
+    l                                       = CharField(db_column='l', # XXX localityName
                                                 validators=[validate_l], null=True, blank=True)
     l.permissions                           = { 'self': 'write', 'root': 'write' }
+
+    # all other attributes not used
+
+    class Meta:
+        abstract = True
+
+
+class LdapInetOrgPerson(LdapOrganizationalPerson):
+    # objectclass ( 2.16.840.1.113730.3.2.2 NAME 'inetOrgPerson'
+    #     DESC 'RFC2798: Internet Organizational Person'
+    #     SUP organizationalPerson STRUCTURAL
+    #     MAY (
+    #         audio $ businessCategory $ carLicense $ departmentNumber $
+    #         displayName $ employeeNumber $ employeeType $ givenName $
+    #         homePhone $ homePostalAddress $ initials $ jpegPhoto $
+    #         labeledURI $ mail $ manager $ mobile $ o $ pager $ photo $
+    #         roomNumber $ secretary $ uid $ userCertificate $
+    #         x500uniqueIdentifier $ preferredLanguage $
+    #         userSMIMECertificate $ userPKCS12
+    #     )
+    # )
+    # from organizationalPerson
+
+    # TODO jpegPhoto
+
+    # TODO jpegPhoto.permissions
 
     labeledURI                              = CharField(db_column='labeledURI',
                                                 validators=[validate_labeledURI], null=True, blank=True)
     labeledURI.permissions                  = { 'self': 'write', 'root': 'write' }
 
+    # NOTE uid defined subsequently
+
+    # all other attributes not used
+
     class Meta:
         abstract = True
 
-class LdapDebianAccount(LdapInetOrgPerson):
-    "Abstraction of an account with POSIX attributes and UTF8 support"
-    
-    #object_classes = ['debianAccount']
-    
-    # objectclass ( 1.3.6.1.4.1.9586.100.4.1.1
-    #     NAME 'debianAccount'
+
+class LdapDebianAccount(ldapdb.models.Model):
+    # objectclass ( 1.3.6.1.4.1.9586.100.4.1.1 NAME 'debianAccount'
     #     DESC 'Abstraction of an account with POSIX attributes and UTF8 support'
     #     SUP top AUXILIARY
     #     MUST ( cn $ uid $ uidNumber $ gidNumber )
-    #     MAY ( userPassword $ loginShell $ gecos $ homeDirectory $ description $ mailDisableMessage $ sudoPassword $ webPassword $ voipPassword ) )
+    #     MAY (
+    #         userPassword $ loginShell $ gecos $ homeDirectory $
+    #         description $ mailDisableMessage $ sudoPassword $
+    #         webPassword $ rtcPassword
+    #     )
+    # )
 
+    # NOTE cn already previously
 
     uid                                     = CharField(db_column='uid',
                                                 validators=[], primary_key=True)
@@ -577,8 +698,6 @@ class LdapDebianAccount(LdapInetOrgPerson):
                                                 validators=[validate_gidNumber])
     gidNumber.permissions                   = { 'self': 'read', 'root': 'write' }
 
-    #---- MAY -----
-    
     userPassword                            = CharField(db_column='userPassword',
                                                 validators=[validate_userPassword])
     userPassword.permissions                = { 'self': 'none', 'root': 'read' }
@@ -587,7 +706,7 @@ class LdapDebianAccount(LdapInetOrgPerson):
                                                 validators=[validate_loginShell])
     loginShell.permissions                  = { 'self': 'read', 'root': 'write' }
 
-    gecos                                   = CharField(db_column='gecos',
+    gecos                                   = CharField(db_column='gecos', # XXX overrides posixAccount!
                                                 validators=[validate_gecos])
     gecos.permissions                       = { 'self': 'read', 'root': 'write' }
 
@@ -597,48 +716,44 @@ class LdapDebianAccount(LdapInetOrgPerson):
                                                 validators=[validate_mailDisableMessage], null=True, blank=True)
     mailDisableMessage.permissions          = { 'self': 'read', 'root': 'write' }
 
-    # TODO sudoPassword ?
+    # TODO sudoPassword
 
     webPassword                             = CharField(db_column='webPassword',
                                                 validators=[validate_webPassword], null=True, blank=True)
     webPassword.permissions                 = { 'self': 'none', 'root': 'read' }
 
-    voipPassword                            = CharField(db_column='voipPassword',
-                                                validators=[validate_voipPassword], null=True, blank=True)
-    voipPassword.permissions                = { 'self': 'none', 'root': 'read' }
+    rtcPassword                             = CharField(db_column='rtcPassword',
+                                                validators=[validate_rtcPassword], null=True, blank=True)
+    rtcPassword.permissions                 = { 'self': 'none', 'root': 'read' }
 
     class Meta:
         abstract = True
 
-#class LdapShadowAccount
 
-class LdapDebianDeveloper(LdapDebianAccount):
-    "additional account attributes used by Debian"
-
-    #base_dn = 'ou=users,dc=debian,dc=org'
- 
-    #object_classes = ['debianAccount', 'debianDeveloper']
-   
-    # objectclass ( 1.3.6.1.4.1.9586.100.4.3.1
-    #     NAME 'debianDeveloper'
+class LdapDebianDeveloper(ldapdb.models.Model):
+    # objectclass ( 1.3.6.1.4.1.9586.100.4.3.1 NAME 'debianDeveloper'
     #     DESC 'additional account attributes used by Debian'
     #     SUP top AUXILIARY
     #     MUST ( uid $ cn $ sn )
-    #     MAY ( accountComment $ accountStatus $ activity-from $
-    #           activity-pgp $ allowedHost $ comment $ countryName $
-    #           dnsZoneEntry $ emailForward $ icqUin $ ircNick $
-    #           jabberJID $ keyFingerPrint $ latitude $ longitude $ mn $
-    #           onVacation $ privateSub $ sshRSAAuthKey $ supplementaryGid $
-    #           access $ gender $ birthDate $ mailCallout $ mailGreylisting $
-    #               mailRBL $ mailRHSBL $ mailWhitelist $ VoIP $ mailContentInspectionAction $
-    #               bATVToken $ mailDefaultOptions $ mailPreserveSuffixSeparator
-    #     ) )
+    #     MAY (
+    #         accountComment $ accountStatus $ activity-from $ activity-pgp $
+    #         allowedHost $ comment $ countryName $ dnsZoneEntry $ emailForward $
+    #         icqUin $ ircNick $ jabberJID $ keyFingerPrint $ latitude $ longitude $
+    #         mn $ onVacation $ privateSub $ sshRSAAuthKey $ supplementaryGid $
+    #         access $ gender $ birthDate $ mailCallout $ mailGreylisting $ mailRBL $
+    #         mailRHSBL $ mailWhitelist $ VoIP $ mailContentInspectionAction $
+    #         bATVToken $ mailDefaultOptions
+    #     )
 
-    #---- MAY -----
+    # NOTE uid defined previously
 
-    # TODO access ?
+    # NOTE cn defined previously
+
+    # NOTE sn defined previously
 
     # TODO accountComment
+
+    # TODO accountComment.permissions
 
     accountStatus                           = CharField(db_column='accountStatus',
                                                 validators=[validate_accountStatus], null=True, blank=True)
@@ -656,36 +771,21 @@ class LdapDebianDeveloper(LdapDebianAccount):
                                                 validators=[validate_allowedHost])
     allowedHost.permissions                 = { 'self': 'none', 'root': 'write' }
 
-    bATVToken                               = CharField(db_column='bATVToken',
-                                                validators=[validate_bATVToken], null=True, blank=True)
-    bATVToken.permissions                   = { 'self': 'write', 'root': 'write' }
+    # TODO comment
 
-    birthDate                               = CharField(db_column='birthDate',
-                                                validators=[validate_birthDate], null=True, blank=True)
-    birthDate.permissions                   = { 'self': 'write', 'root': 'write' }
+    # TODO comment.permissions
 
-    # countryName
-    c                                       = CharField(db_column='c',
+    c                                       = CharField(db_column='c', # XXX in lieu of countryName?
                                                 validators=[validate_c], null=True, blank=True)
     c.permissions                           = { 'self': 'write', 'root': 'write' }
-
-    
 
     dnsZoneEntry                            = ListField(db_column='dnsZoneEntry',
                                                 validators=[validate_dnsZoneEntry])
     dnsZoneEntry.permissions                = { 'self': 'write', 'root': 'write' }
 
-    # emailAddress = property(_get_emailAddress)
-
     emailForward                            = CharField(db_column='emailForward',
                                                 validators=[validate_emailForward], null=True, blank=True)
     emailForward.permissions                = { 'self': 'write', 'root': 'write' }
-
-    #expire = property(_get_expire)
-
-    gender                                  = CharField(db_column='gender', # XXX use IntegerField instead?
-                                                validators=[validate_gender], null=True, blank=True)
-    gender.permissions                      = { 'self': 'write', 'root': 'write' }
 
     icqUin                                  = CharField(db_column='icqUin',
                                                 validators=[validate_icqUin], null=True, blank=True)
@@ -699,12 +799,6 @@ class LdapDebianDeveloper(LdapDebianAccount):
                                                 validators=[validate_jabberJID], null=True, blank=True)
     jabberJID.permissions                   = { 'self': 'write', 'root': 'write' }
 
-    # TODO jpegPhoto
-
-    # TODO jpegPhoto.permissions
-
-    #key = property(_get_key)
-
     keyFingerPrint                          = CharField(db_column='keyFingerPrint',
                                                 validators=[validate_keyFingerPrint], null=True, blank=True)
     keyFingerPrint.permissions              = { 'self': 'read', 'root': 'write' }
@@ -717,27 +811,46 @@ class LdapDebianDeveloper(LdapDebianAccount):
                                                 validators=[validate_longitude], null=True, blank=True)
     longitude.permissions                   = { 'self': 'write', 'root': 'write' }
 
+    mn                                      = CharField(db_column='mn',
+                                                validators=[validate_mn], null=True, blank=True)
+    mn.permissions                          = { 'self': 'read', 'root': 'write' }
 
-    # TODO mailCallout
+    # TODO onVacation
+
+    # TODO onVacation.permissions
+
+    privateSub                              = CharField(db_column='privateSub',
+                                                validators=[validate_privateSub], null=True, blank=True)
+    privateSub.permissions                  = { 'self': 'read', 'root': 'write' }
+
+    sshRSAAuthKey                           = ListField(db_column='sshRSAAuthKey',
+                                                validators=[validate_sshRSAAuthKey], null=True, blank=True)
+    sshRSAAuthKey.permissions               = { 'self': 'write', 'root': 'write' }
+
+    supplementaryGid                        = ListField(db_column='supplementaryGid',
+                                                validators=[validate_supplementaryGid])
+    supplementaryGid.permissions            = { 'self': 'read', 'root': 'write' }
+
+    # TODO access
+
+    # TODO access.permissions
+
+    gender                                  = CharField(db_column='gender', # XXX use IntegerField instead?
+                                                validators=[validate_gender], null=True, blank=True)
+    gender.permissions                      = { 'self': 'write', 'root': 'write' }
+
+    birthDate                               = CharField(db_column='birthDate',
+                                                validators=[validate_birthDate], null=True, blank=True)
+    birthDate.permissions                   = { 'self': 'write', 'root': 'write' }
 
     mailCallout                             = CharField(db_column='mailCallout',
                                                 validators=[validate_mailCallout], null=True, blank=True)
     mailCallout.permissions                 = { 'self': 'write', 'root': 'write' }
 
-    mailContentInspectionAction             = CharField(db_column='mailContentInspectionAction',
-                                                validators=[validate_mailContentInspectionAction], null=True, blank=True)
-    mailContentInspectionAction.permissions = { 'self': 'write', 'root': 'write' }
-
-    mailDefaultOptions                      = CharField(db_column='mailDefaultOptions',
-                                                validators=[validate_mailDefaultOptions], null=True, blank=True)
-    mailDefaultOptions.permissions          = { 'self': 'write', 'root': 'write' }
-
     mailGreylisting                         = CharField(db_column='mailGreylisting',
                                                 validators=[validate_mailGreylisting], null=True, blank=True)
     mailGreylisting.permissions             = { 'self': 'write', 'root': 'write' }
 
-    # TODO mailPreserveSuffixSeparator
-    
     mailRBL                                 = ListField(db_column='mailRBL',
                                                 validators=[validate_mailRBL], null=True, blank=True)
     mailRBL.permissions                     = { 'self': 'write', 'root': 'write' }
@@ -750,77 +863,37 @@ class LdapDebianDeveloper(LdapDebianAccount):
                                                 validators=[validate_mailWhitelist], null=True, blank=True)
     mailWhitelist.permissions               = { 'self': 'write', 'root': 'write' }
 
-    mn                                      = CharField(db_column='mn',
-                                                validators=[validate_mn], null=True, blank=True)
-    mn.permissions                          = { 'self': 'read', 'root': 'write' }
-
-    # TODO onVacation
-
-    # TODO onVacation.permissions
-
-    #password = property(_get_password)
-
-    # TODO postalAddress
-
-    # TODO postalAddress.permissions
-
-    # TODO postalCode
-
-    # TODO postalCode.permissions
-
-    privateSub                              = CharField(db_column='privateSub',
-                                                validators=[validate_privateSub], null=True, blank=True)
-    privateSub.permissions                  = { 'self': 'read', 'root': 'write' }
-
-    shadowExpire                            = IntegerField( db_column='shadowExpire',
-                                                validators=[])
-    shadowExpire.permissions                = { 'self': 'read', 'root': 'read' }
-
-    shadowInactive                          = IntegerField( db_column='shadowInactive',
-                                                validators=[])
-    shadowInactive.permissions              = { 'self': 'read', 'root': 'read' }
-
-    shadowLastChange                        = IntegerField( db_column='shadowLastChange',
-                                                validators=[])
-    shadowLastChange.permissions            = { 'self': 'read', 'root': 'read' }
-
-    shadowMax                               = IntegerField( db_column='shadowMax',
-                                                validators=[])
-    shadowMax.permissions                   = { 'self': 'read', 'root': 'read' }
-
-    shadowMin                               = IntegerField( db_column='shadowMin',
-                                                validators=[])
-    shadowMin.permissions                   = { 'self': 'read', 'root': 'read' , 'root': 'read' }
-
-    shadowWarning                           = IntegerField( db_column='shadowWarning',
-                                                validators=[])
-    shadowWarning.permissions               = { 'self': 'read', 'root': 'read' }
-
-    sshRSAAuthKey                           = ListField(db_column='sshRSAAuthKey',
-                                                validators=[validate_sshRSAAuthKey], null=True, blank=True)
-    sshRSAAuthKey.permissions               = { 'self': 'write', 'root': 'write' }
-
-    supplementaryGid                        = ListField(db_column='supplementaryGid',
-                                                validators=[validate_supplementaryGid])
-    supplementaryGid.permissions            = { 'self': 'read', 'root': 'write' }
-
-    # TODO telephoneNumber
-
-    # TODO telephoneNumber.permissions
-
     # TODO VoIP
 
     # TODO VoIP.permissions
+
+    mailContentInspectionAction             = CharField(db_column='mailContentInspectionAction',
+                                                validators=[validate_mailContentInspectionAction], null=True, blank=True)
+    mailContentInspectionAction.permissions = { 'self': 'write', 'root': 'write' }
+
+    bATVToken                               = CharField(db_column='bATVToken',
+                                                validators=[validate_bATVToken], null=True, blank=True)
+    bATVToken.permissions                   = { 'self': 'write', 'root': 'write' }
+
+    mailDefaultOptions                      = CharField(db_column='mailDefaultOptions',
+                                                validators=[validate_mailDefaultOptions], null=True, blank=True)
+    mailDefaultOptions.permissions          = { 'self': 'write', 'root': 'write' }
+
+    # NOTE emailAddress = property(_get_emailAddress)
+
+    # NOTE expire = property(_get_expire)
+
+    # NOTE key = property(_get_key)
+
+    # NOTE password = property(_get_password)
 
     class Meta:
         abstract = True
 
 
-class LdapUser(LdapDebianDeveloper):
-    
+class LdapUser(LdapInetOrgPerson, LdapDebianAccount, LdapShadowAccount, LdapDebianDeveloper):
+    object_classes = ['debianDeveloper']
     base_dn = 'ou=users,dc=debian,dc=org'
-    
-    object_classes = ['debianAccount']
 
     def __str__(self):
         return self.uid
@@ -865,7 +938,7 @@ class LdapUser(LdapDebianDeveloper):
         records = [x for x in self.dnsZoneEntry if x.startswith(label)]
         for old_value in [x for x in records if x.startswith(query)]:
             self.dnsZoneEntry.remove(old_value)
-            
+
     def _do_update_dnsZoneEntry(self, line):
         tokens = validate_dnsZoneEntry(line, mode='update')
         label = '%s ' % (tokens[0])   # "foo " the trailing space is a guard
@@ -876,7 +949,7 @@ class LdapUser(LdapDebianDeveloper):
             self.dnsZoneEntry.append(new_value)
         if len(users) == 1: # one user owns resource record(s) for the label
             if users[0].uid == self.uid:       # if that user is me
-                records = [x for x in self.dnsZoneEntry if x.startswith(query)] 
+                records = [x for x in self.dnsZoneEntry if x.startswith(query)]
                 if tokens[2] in ['MX']:          # allow multiple MX records
                     if new_value not in records:    # add if does not exist
                         self.dnsZoneEntry.append(new_value)
@@ -916,8 +989,8 @@ class LdapUser(LdapDebianDeveloper):
         for record in records:
             field.remove(record)
 
-    # a given key can only be used once
     def __do_update_ListField(self, key, query, new_value):
+        # a given key can only be used once
         field = getattr(self, key)
         records = [x for x in field if query in x]
         if len(records) == 0:
@@ -1014,7 +1087,7 @@ class LdapUser(LdapDebianDeveloper):
         else:
             return self.shadowExpire
     expire = property(_get_expire)
-    
+
     def _get_key(self):
         rval = ''
         try:
@@ -1048,7 +1121,8 @@ class LdapUser(LdapDebianDeveloper):
             return p[7:]
     password = property(_get_password)
 
-    def validate(self): # TODO ... validate some additional business rules regarding ownership of DNS records
+    def validate(self):
+        # TODO ... validate some additional business rules regarding ownership of DNS records
         errors = list()
         for fieldname in self._meta.get_all_field_names():
             field = self._meta.get_field(fieldname)
@@ -1071,5 +1145,4 @@ class ReplayCache(models.Model):
     timestamp = models.DateTimeField()
     digest = models.CharField(max_length=200)
 
-
-# vim: ts=4 sw=4 et ai si sta:
+# vim: ts=4 sw=4 et ai si sm:
