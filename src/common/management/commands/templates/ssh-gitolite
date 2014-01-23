@@ -1,0 +1,17 @@
+## vim: set ft=mako:
+% for user in users:
+%     if hasattr(user, 'sshRSAAuthKey'):
+%         for sshRSAAuthKey in user.sshRSAAuthKey:
+%             if sshRSAAuthKey.startswith('ssh-'):
+command="/usr/share/gitolite/gl-auth-command ${user.uid}",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty,no-user-rc ${sshRSAAuthKey}
+%             else:
+command="/usr/share/gitolite/gl-auth-command ${user.uid}",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty,no-user-rc,${sshRSAAuthKey}
+%             endif
+%         endfor
+%     endif
+% endfor
+% for host in hosts:
+%     for sshRSAHostKey in host.sshRSAHostKey:
+command="/usr/share/gitolite/gl-auth-command host-${host.hostname}",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty,no-user-rc ${sshRSAHostKey}
+%     endfor
+% endfor

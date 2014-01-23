@@ -1,4 +1,7 @@
 username: 'username'
 password: 'password'
+hmac_key: 'hmac_key'
 keyrings:
   - "/usr/share/keyrings/debian-keyring.gpg"
+  - "/org/keyring.debian.org/keyrings/debian-maintainers.gpg"
+  - "/org/keyring.debian.org/keyrings/debian-nonupload.gpg"

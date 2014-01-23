@@ -24,6 +24,10 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
 from common.models import DebianHost, DebianGroup, DebianRole, DebianUser
+
+from dsa_mq.connection import Connection
+from dsa_mq.config import Config
+
 from datetime import datetime, timedelta
 from itertools import chain
 from mako.lookup import TemplateLookup
@@ -38,6 +42,8 @@ import lockfile
 import optparse
 import os
 import posix
+import re
+import shutil
 import tarfile
 import time
 import yaml
@@ -48,7 +54,6 @@ from ldap import LDAPError
 
 from _utilities import load_configuration_file
 
-# TODO check unicode handling
 class Command(BaseCommand):
     help = 'Generates, on a host-by-host basis, the set of files to be replicated.'
     option_list = BaseCommand.option_list + (
@@ -62,9 +67,14 @@ class Command(BaseCommand):
             default='/etc/ud/generate.yaml',
             help='specify configuration file'
         ),
+        optparse.make_option('--mq',
+            action='store_true',
+            default=False,
+            help='force update notification via mq'
+        ),
     )
 
-    def handle(self, *args, **options): # TODO load_configuration_file
+    def handle(self, *args, **options):
         self.options = options
         try:
             load_configuration_file(self.options['config'])
@@ -82,10 +92,10 @@ class Command(BaseCommand):
         except Exception as err:
             raise CommandError(err)
         self.dstdir = os.path.join(settings.CACHE_DIR, 'hosts')
-        # TODO : create self.dstdir if it doesn"t exist
+        self.makedirs(self.dstdir)
         self.tpldir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
         self.finder = TemplateLookup(directories=[self.tpldir], encoding_errors='ignore', output_encoding='utf-8')
-        lock = lockfile.FileLock(os.path.join(self.dstdir, 'ud-generate'))
+        lock = lockfile.FileLock(os.path.join(self.dstdir, 'ud-generate')) # TODO change fnctl() lockfile
         try:
             lock.acquire(timeout=5)
         except lockfile.AlreadyLocked as err:
@@ -105,6 +115,8 @@ class Command(BaseCommand):
                     if not hasattr(self, 'last_ldap_mod') :
                         self.last_ldap_mod = last_generate
                     f.write(yaml.dump({'last_file_mod': self.last_file_mod, 'last_ldap_mod': self.last_ldap_mod, 'last_generate': last_generate}))
+                if self.options['mq']:
+                    notify_via_mq(self.options['mq'], 'Update forced' if self.options['force'] else 'Update needed')
         except Exception as err:
             raise CommandError(err)
         finally:
@@ -159,7 +171,8 @@ class Command(BaseCommand):
         _gid2group = dict()
         _gidNumber2gid = dict()
         for group in self.groups:
-            group.hid2users = dict()
+            group.hid2users = dict() # real users - group exists on the host
+            group.hid2virts = dict() # virt users - group doesn't exist on the host
             _gid2group[group.gid] = group
             _gidNumber2gid[group.gidNumber] = group.gid
 
@@ -174,7 +187,7 @@ class Command(BaseCommand):
             elif user.gidNumber in _gidNumber2gid:
                 user.gid = _gidNumber2gid[user.gidNumber]
             else:
-                continue # TODO error ... log? raise?
+                continue
             user.hid2gids = dict()
             for host in self.hosts:
                 host_gids = set(host.allowedGroups) | set(['adm'])
@@ -183,6 +196,10 @@ class Command(BaseCommand):
                     if user.is_not_retired() and user.has_active_password():
                         user.hid2gids[host.hid] = user_gids
                         host.users.add(user)
+                for user_gid in user_gids:
+                    if user_gid in _gid2group:
+                        group = _gid2group[user_gid]
+                        group.hid2virts.setdefault(host.hid, set()).add(user)
 
         # pass 2: ensure that for each user found, all his groups are included
         for host in self.hosts:
@@ -211,11 +228,13 @@ class Command(BaseCommand):
         self.generate_tpl_file(dstdir, 'web-passwords', users=self.users)
         self.generate_tpl_file(dstdir, 'rtc-passwords', users=self.users)
         self.generate_tpl_file(dstdir, 'forward-alias', users=self.users)
-        self.generate_tpl_file(dstdir, 'markers', users=self.users)     # FIXME double check user filter
+        self.generate_tpl_file(dstdir, 'markers', users=self.users)
         self.generate_tpl_file(dstdir, 'ssh_known_hosts', hosts=self.hosts)
         self.generate_tpl_file(dstdir, 'debianhosts', hosts=self.hosts)
-        self.generate_tpl_file(dstdir, 'dns-zone', users=self.users)    # FIXME double check user filter
+        self.generate_tpl_file(dstdir, 'ssh-gitolite', users=self.users, hosts=self.hosts)
+        self.generate_tpl_file(dstdir, 'dns-zone', users=self.users)
         self.generate_tpl_file(dstdir, 'dns-sshfp', hosts=self.hosts)
+
         with open(os.path.join(dstdir, 'all-accounts.json'), 'w') as f:
             data = list()
             for user in self.users:
@@ -223,7 +242,17 @@ class Command(BaseCommand):
                     active = user.has_active_password() and not user.has_expired_password()
                     data.append({'uid':user.uid, 'uidNumber':user.uidNumber, 'active':active})
             json.dump(data, f, sort_keys=True, indent=4, separators=(',',':'))
-        # TODO GenKeyrings(global_dir)
+
+        for element in settings.config['keyrings']:
+            if os.path.isdir(element):
+                src = element
+                dst = os.path.join(dstdir, os.path.basename(element))
+                shutil.rmtree(dst, True)
+                shutil.copytree(src, dst)
+            else:
+                src = element
+                dst = dstdir
+                shutil.copy(src, dst)
 
         for host in self.hosts:
             self.generate_host(host)
@@ -234,9 +263,12 @@ class Command(BaseCommand):
 
         self.generate_tpl_file(dstdir, 'passwd.tdb', users=host.users, host=host)
         self.generate_tpl_file(dstdir, 'group.tdb', groups=host.groups, host=host)
-        # TODO GenShadowSudo(accounts, OutDir + "sudo-passwd", ('UNTRUSTED' in ExtraList) or ('NOPASSWD' in ExtraList), current_host)
+        self.generate_tpl_file(dstdir, 'sudo-passwd', users=host.users, host=host)
         self.generate_tpl_file(dstdir, 'shadow.tdb', users=host.users, guard=('NOPASSWD' not in host.exportOptions))
         self.generate_tpl_file(dstdir, 'bsmtp', users=self.users, host=host, guard=('BSMTP' in host.exportOptions))
+        for gid in [match.group(1) for match in (re.search('GITOLITE=(.+)', exportOption) for exportOption in host.exportOptions) if match]:
+            virts = set(chain.from_iterable([group.hid2virts[host.hid] for group in self.groups if group.gid == gid]))
+            self.generate_tpl_file(dstdir, 'ssh-gitolite', users=virts, hosts=self.hosts, dstfile='ssh-gitolite-' + gid)
         self.generate_cdb_file(dstdir, 'user-forward.cdb', 'emailForward', users=host.users)
         self.generate_cdb_file(dstdir, 'batv-tokens.cdb', 'bATVToken', users=host.users)
         self.generate_cdb_file(dstdir, 'default-mail-options.cdb', 'mailDefaultOptions', users=host.users)
@@ -255,23 +287,44 @@ class Command(BaseCommand):
         self.link(self.dstdir, dstdir, 'rtc-passwords', ('RTC-PASSWORDS' in host.exportOptions))
         self.link(self.dstdir, dstdir, 'forward-alias')
         self.link(self.dstdir, dstdir, 'markers', ('NOMARKERS' not in host.exportOptions))
-        self.link(self.dstdir, dstdir, 'ssh_known_hosts')               # FIXME handle purpose
+        self.link(self.dstdir, dstdir, 'ssh_known_hosts')
         self.link(self.dstdir, dstdir, 'debianhosts')
         self.link(self.dstdir, dstdir, 'dns-zone', ('DNS' in host.exportOptions))
         self.link(self.dstdir, dstdir, 'dns-sshfp', ('DNS' in host.exportOptions))
         self.link(self.dstdir, dstdir, 'all-accounts.json')
-        # TODO keyring stuff
+
+        if 'KEYRING' in host.exportOptions:
+            for element in settings.config['keyrings']:
+                if os.path.isdir(element):
+                    src = os.path.join(self.dstdir, os.path.basename(element))
+                    dst = os.path.join(dstdir, os.path.basename(element))
+                    shutil.rmtree(dst, True)
+                    shutil.copytree(src, dst)
+                else:
+                    tgt = os.path.basename(element)
+                    self.link(self.dstdir, dstdir, tgt)
+        else:
+            for element in settings.config['keyrings']:
+                try:
+                    if os.path.isdir(element):
+                        dst = os.path.join(dstdir, os.path.basename(element))
+                        shutil.rmtree(dst, True)
+                    else:
+                        tgt = os.path.join(dstdir, os.path.basename(element))
+                        posix.remove(tgt)
+                except:
+                    pass
 
         tf = tarfile.open(name=os.path.join(self.dstdir, host.hostname, 'ssh-keys.tar.gz'), mode='w:gz')
         for user in host.users:
-            if not hasattr(user, 'sshRSAAuthKey'): # xxx handle DebianRole
+            if not hasattr(user, 'sshRSAAuthKey'):
                 continue
             to = tarfile.TarInfo(name=user.uid)
-            contents = '\n'.join(user.sshRSAAuthKey) + '\n'             # FIXME handle allowed_hosts
+            contents = '\n'.join(user.sshRSAAuthKey) + '\n' # TODO handle allowed_hosts
             to.uid = 0
             to.gid = 65534
-            to.uname = user.uid # XXX the magic happens here
-            to.gname = user.gid # XXX the magic happens here
+            to.uname = user.uid
+            to.gname = user.gid
             to.mode  = 0400
             to.mtime = int(time.time())
             to.size = len(contents)
@@ -295,22 +348,50 @@ class Command(BaseCommand):
                 pass
             posix.link(os.path.join(srcdir, filename), os.path.join(dstdir, filename))
 
-    def generate_tpl_file(self, dstdir, template, hosts=None, groups=None, users=None, host=None, guard=True):
+    def generate_tpl_file(self, dstdir, template, hosts=None, groups=None, users=None, host=None, guard=True, dstfile=None):
         if guard:
             t = self.finder.get_template(template)
-            with open(os.path.join(dstdir, template), 'w') as f:
+            o = os.path.join(dstdir, dstfile if dstfile else template)
+            with open(o, 'w') as f:
                 f.write(t.render(hosts=hosts, groups=groups, users=users, host=host))
 
     def generate_cdb_file(self, dstdir, filename, key, hosts=None, groups=None, users=None, host=None, guard=True):
         if guard:
             fn = os.path.join(dstdir, filename).encode('ascii', 'ignore')
             maker = cdb.cdbmake(fn, fn + '.tmp')
-            for user in users:
-                if user.is_not_retired():                               # FIXME really?
+            for user in users: # TODO latest version of python-cdb can do bulk add
+                if user.is_not_retired():
                     val = getattr(user, key)
                     if val:
                         maker.add(user.uid, val)
             maker.finish()
 
+    def notify_via_mq(options, message):
+        options.section = 'dsa-udgenerate'
+        options.config = '/etc/dsa/pubsub.conf'
+
+        config = Config(options)
+        conf = {
+            'rabbit_userid': config.username,
+            'rabbit_password': config.password,
+            'rabbit_virtual_host': config.vhost,
+            'rabbit_hosts': ['pubsub02.debian.org', 'pubsub01.debian.org'],
+            'use_ssl': False
+        }
+
+        msg = {
+            'message': message,
+            timestamp: int(time.time())
+        }
+        conn = None
+        try:
+            conn = Connection(conf=conf)
+            conn.topic_send(config.topic,
+                    json.dumps(msg),
+                    exchange_name=config.exchange,
+                    timeout=5)
+        finally:
+            if conn:
+                conn.close()
 
 # vim: set ts=4 sw=4 et ai si sta:

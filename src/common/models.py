@@ -34,6 +34,7 @@ import datetime
 import email.utils
 import json
 import hashlib
+import hmac
 import os
 import pycountry
 import pyme.core
@@ -78,6 +79,12 @@ def DecDegree(Posn, Anon=False): # FIXME ick... replace with geopy?
     if Val >= 0:
         return "+" + Str
     return Str
+
+def make_hmac(key, val):
+    return hmac.new(key, val, hashlib.sha1).hexdigest()
+
+def make_passwd_hmac(key, status, purpose, uid, uuid, hostnames, password):
+    return make_hmac(key, ':'.join([status, purpose, uid, uuid, hostnames, password]))
 
 def validate_dns_labels(val):
     disallowed = re.compile('[^_A-Z\d-]', re.IGNORECASE)
@@ -463,6 +470,9 @@ def validate_sshRSAAuthKey_key(encoded_key):
     if encoded_key != base64.b64encode('\0\0\0\7ssh-rsa%s%s' % created_key.pub()):
         raise ValidationError('newly created key and provided key do not match')
 
+def validate_sudoPassword(val):
+    return # TODO
+
 def validate_supplementaryGid(val):
     try:
         if '@' in val:
@@ -757,7 +767,9 @@ class __LdapDebianAccount(ldapdb.models.Model):
                                                 validators=[validate_mailDisableMessage], null=True, blank=True)
     mailDisableMessage.permissions          = { 'self': 'read', 'root': 'write' }
 
-    # TODO sudoPassword
+    sudoPassword                            = ListField(db_column='sudoPassword',
+                                                validators=[validate_sudoPassword])
+    sudoPassword.permissions                = { 'self': 'none', 'root': 'read' }
 
     webPassword                             = CharField(db_column='webPassword',
                                                 validators=[validate_webPassword], null=True, blank=True)
@@ -1300,6 +1312,33 @@ class __BaseClass(object):
         if errors:
             raise ValidationError(errors)
 
+    def sudoPasswordForHost(self, host):
+        sudoPasswordForHost = '*'
+        for entry in self.sudoPassword:
+            match = re.compile('^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) (confirmed:[0-9a-f]{40}|unconfirmed) ([a-z0-9.,*]+) ([^ ]+)$').match(entry)
+            if match == None:
+                continue # invalid entry so continue searching
+            uuid = match.group(1)
+            status = match.group(2)
+            hostnames = match.group(3)
+            sudoPassword = match.group(4)
+            host_is_untrusted = ('UNTRUSTED' in host.exportOptions) or ('NOPASSWD' in host.exportOptions)
+            apply_to_all_hosts = hostnames == '*'
+            apply_to_this_host = host.hostname in hostnames.split(',')
+            if status != 'confirmed:' + make_passwd_hmac(settings.config['hmac_key'], 'password-is-confirmed', 'sudo', self.uid, uuid, hostnames, sudoPassword):
+                continue # entry is not confirmed so continue searching
+            if not (apply_to_all_hosts or apply_to_this_host):
+                continue # entry applies neither globally nor specifically so continue searching
+            if apply_to_all_hosts and host_is_untrusted:
+                continue # entry applies globally but this host is untrusted so continue searching
+            sudoPasswordForHost = sudoPassword
+            if apply_to_this_host:
+                break    # entry applies specifically so stop searching
+            # continue searching
+        if len(sudoPasswordForHost) > 50:
+            sudoPasswordForHost = '*'
+        return sudoPasswordForHost
+
 
 class DebianUser(__LdapInetOrgPerson, __LdapDebianAccount, __LdapShadowAccount, __LdapDebianDeveloper, __BaseClass):
     object_classes = ['debianDeveloper']
@@ -1312,6 +1351,7 @@ class DebianUser(__LdapInetOrgPerson, __LdapDebianAccount, __LdapShadowAccount, 
     def _get_longitude_as_decdegree(self): # FIXME ick ... bad data in, bad data out
         return DecDegree(self.longitude, True)
     longitude_as_decdegree = property(_get_longitude_as_decdegree)
+
 
 class DebianRole(__LdapDebianAccount, __LdapShadowAccount, __LdapDebianRoleAccount, __BaseClass):
     object_classes = ['debianRoleAccount']

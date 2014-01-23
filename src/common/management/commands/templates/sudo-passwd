@@ -1,0 +1,4 @@
+## vim: set ft=mako:
+% for i, user in enumerate(users):
+${user.uid}:${user.sudoPasswordForHost(host)}
+% endfor
