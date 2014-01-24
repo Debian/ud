@@ -23,7 +23,7 @@
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
-from common.models import DebianHost, DebianGroup, DebianRole, DebianUser
+from common.models import DebianHost, DebianGroup, DebianRole, DebianUser, validate_sshRSAAuthKey
 
 from dsa_mq.connection import Connection
 from dsa_mq.config import Config
@@ -319,16 +319,23 @@ class Command(BaseCommand):
         for user in host.users:
             if not hasattr(user, 'sshRSAAuthKey'):
                 continue
-            to = tarfile.TarInfo(name=user.uid)
-            contents = '\n'.join(user.sshRSAAuthKey) + '\n' # TODO handle allowed_hosts
-            to.uid = 0
-            to.gid = 65534
-            to.uname = user.uid
-            to.gname = user.gid
-            to.mode  = 0400
-            to.mtime = int(time.time())
-            to.size = len(contents)
-            tf.addfile(to, StringIO(contents))
+            contents = ''
+            for sshRSAAuthKey in user.sshRSAAuthKey:
+                if sshRSAAuthKey.startswith('allowed_hosts=') and ' ssh-rsa ' in sshRSAAuthKey:
+                    hostnames, sshRSAAuthKey = sshRSAAuthKey.split('=', 1)[1].split(' ', 1)
+                    if host.hostname not in hostnames.split(','):
+                        continue
+                contents += sshRSAAuthKey + '\n'
+            if contents:
+                to = tarfile.TarInfo(name=user.uid)
+                to.uid = 0
+                to.gid = 65534
+                to.uname = user.uid
+                to.gname = user.gid
+                to.mode  = 0400
+                to.mtime = int(time.time())
+                to.size = len(contents)
+                tf.addfile(to, StringIO(contents))
         tf.close()
 
         self.link(self.dstdir, dstdir, 'last_update.trace')
@@ -379,17 +386,11 @@ class Command(BaseCommand):
             'use_ssl': False
         }
 
-        msg = {
-            'message': message,
-            timestamp: int(time.time())
-        }
+        msg = { 'message': message, timestamp: int(time.time()) }
         conn = None
         try:
             conn = Connection(conf=conf)
-            conn.topic_send(config.topic,
-                    json.dumps(msg),
-                    exchange_name=config.exchange,
-                    timeout=5)
+            conn.topic_send(config.topic, json.dumps(msg), exchange_name=config.exchange, timeout=5)
         finally:
             if conn:
                 conn.close()
