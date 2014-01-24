@@ -48,7 +48,7 @@
 - commands that we we will build (and % completed)
   - ud-echelon    :  90%
   - ud-fingerd    :  90%
-  - ud-generate   :  90% - critical path
+  - ud-generate   :  99% - critical path
   - ud-replicate  :   0%
   - ud-validate   :  90%
   - ud-zoneupdate :   0%

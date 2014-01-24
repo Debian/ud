@@ -35,6 +35,7 @@ from mako.template import Template
 
 import cdb
 import errno
+import fcntl
 import grp
 import json
 import ldap
@@ -95,32 +96,32 @@ class Command(BaseCommand):
         self.makedirs(self.dstdir)
         self.tpldir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
         self.finder = TemplateLookup(directories=[self.tpldir], encoding_errors='ignore', output_encoding='utf-8')
-        lock = lockfile.FileLock(os.path.join(self.dstdir, 'ud-generate')) # TODO change fnctl() lockfile
         try:
-            lock.acquire(timeout=5)
-        except lockfile.AlreadyLocked as err:
-            raise CommandError('the lockfile is already locked')
-        except lockfile.LockFailed as err:
-            raise CommandError('locking the lockfile failed')
-        except lockfile.LockTimeout as err:
-            raise CommandError('timed out waiting to lock the lockfile')
-        try:
-            if self.options['force'] or self.need_update() :
-                with open(os.path.join(self.dstdir, 'last_update.trace'), 'w') as f:
-                    self.marshall()
-                    self.generate()
-                    last_generate = datetime.utcnow().strftime('%Y%m%d%H%M%S.%fZ')
-                    if not hasattr(self, 'last_file_mod') :
-                        self.last_file_mod = last_generate
-                    if not hasattr(self, 'last_ldap_mod') :
-                        self.last_ldap_mod = last_generate
-                    f.write(yaml.dump({'last_file_mod': self.last_file_mod, 'last_ldap_mod': self.last_ldap_mod, 'last_generate': last_generate}))
-                if self.options['mq']:
-                    notify_via_mq(self.options['mq'], 'Update forced' if self.options['force'] else 'Update needed')
+            with open(os.path.join(self.dstdir, 'ud-generate.lock'), 'w') as f:
+                lock_acquired = False
+                lock_time_out = time.time() + 300
+                while not lock_acquired:
+                    try:
+                        fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        lock_acquired = True
+                    except IOError:
+                        if time.time() > lock_time_out:
+                            raise Exception('unable to acquire lock')
+                        time.sleep(2)
+                if self.options['force'] or self.need_update() :
+                    with open(os.path.join(self.dstdir, 'last_update.trace'), 'w') as f:
+                        self.marshall()
+                        self.generate()
+                        last_generate = datetime.utcnow().strftime('%Y%m%d%H%M%S.%fZ')
+                        if not hasattr(self, 'last_file_mod') :
+                            self.last_file_mod = last_generate
+                        if not hasattr(self, 'last_ldap_mod') :
+                            self.last_ldap_mod = last_generate
+                        f.write(yaml.dump({'last_file_mod': self.last_file_mod, 'last_ldap_mod': self.last_ldap_mod, 'last_generate': last_generate}))
+                    if self.options['mq']:
+                        notify_via_mq(self.options['mq'], 'Update forced' if self.options['force'] else 'Update needed')
         except Exception as err:
             raise CommandError(err)
-        finally:
-            lock.release()
 
     def need_update(self):
         try:
