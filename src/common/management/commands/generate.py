@@ -120,7 +120,7 @@ class Command(BaseCommand):
                             self.last_ldap_mod = last_generate
                         f.write(yaml.dump({'last_file_mod': self.last_file_mod, 'last_ldap_mod': self.last_ldap_mod, 'last_generate': last_generate}))
                     if self.options['mq']:
-                        notify_via_mq(self.options['mq'], 'Update forced' if self.options['force'] else 'Update needed')
+                        notify_via_mq(self.options, 'Update forced' if self.options['force'] else 'Update needed')
         except Exception as err:
             raise CommandError(err)
 
@@ -390,7 +390,7 @@ class Command(BaseCommand):
             'use_ssl': False
         }
 
-        msg = { 'message': message, timestamp: int(time.time()) }
+        msg = { 'message': message, 'timestamp': int(time.time()) }
         conn = None
         try:
             conn = Connection(conf=conf)
