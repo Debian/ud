@@ -23,7 +23,7 @@
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
-from common.models import DebianHost, DebianGroup, DebianRole, DebianUser, validate_sshRSAAuthKey
+from common.models import DebianHost, DebianGroup, DebianRole, DebianUser
 
 from dsa_mq.connection import Connection
 from dsa_mq.config import Config
