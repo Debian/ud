@@ -2,3 +2,11 @@ tmp/
 *.yaml
 *.eml
 *.pyc
+.pybuild/
+build/
+debian/files
+debian/ud.debhelper.log
+debian/ud.postinst.debhelper
+debian/ud.prerm.debhelper
+debian/ud.substvars
+debian/ud/

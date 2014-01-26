@@ -596,28 +596,28 @@ class __LdapShadowAccount(ldapdb.models.Model):
 
     # NOTE userPassword defined subsequently
 
-    shadowLastChange                        = IntegerField( db_column='shadowLastChange',
-                                                validators=[])
+    shadowLastChange                        = CharField( db_column='shadowLastChange',
+                                                validators=[], null=True, blank=True)
     shadowLastChange.permissions            = { 'self': 'read', 'root': 'read' }
 
-    shadowMin                               = IntegerField( db_column='shadowMin',
-                                                validators=[])
+    shadowMin                               = CharField( db_column='shadowMin',
+                                                validators=[], null=True, blank=True)
     shadowMin.permissions                   = { 'self': 'read', 'root': 'read' , 'root': 'read' }
 
-    shadowMax                               = IntegerField( db_column='shadowMax',
-                                                validators=[])
+    shadowMax                               = CharField( db_column='shadowMax',
+                                                validators=[], null=True, blank=True)
     shadowMax.permissions                   = { 'self': 'read', 'root': 'read' }
 
-    shadowWarning                           = IntegerField( db_column='shadowWarning',
-                                                validators=[])
+    shadowWarning                           = CharField( db_column='shadowWarning',
+                                                validators=[], null=True, blank=True)
     shadowWarning.permissions               = { 'self': 'read', 'root': 'read' }
 
-    shadowInactive                          = IntegerField( db_column='shadowInactive',
-                                                validators=[])
+    shadowInactive                          = CharField( db_column='shadowInactive',
+                                                validators=[], null=True, blank=True)
     shadowInactive.permissions              = { 'self': 'read', 'root': 'read' }
 
-    shadowExpire                            = IntegerField( db_column='shadowExpire',
-                                                validators=[])
+    shadowExpire                            = CharField( db_column='shadowExpire',
+                                                validators=[], null=True, blank=True)
     shadowExpire.permissions                = { 'self': 'read', 'root': 'read' }
 
     # all other attributes not used
@@ -1214,7 +1214,7 @@ class __BaseClass(object):
         return not self.has_active_password()
 
     def has_expired_password(self):
-        if self.shadowExpire and self.shadowExpire < (time.time() / 3600 / 24):
+        if self.shadowExpire and int(self.shadowExpire) < (time.time() / 3600 / 24):
             return True
         return False
 

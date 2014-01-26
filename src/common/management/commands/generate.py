@@ -157,7 +157,7 @@ class Command(BaseCommand):
             _gids = set()
             for gid in gids:
                 if '@' in gid:
-                    if not gid.endswith(hostname):
+                    if not gid.endswith('@' + hostname):
                         continue
                     gid = gid.split('@')[0]
                 _gids.add(gid)
@@ -184,6 +184,8 @@ class Command(BaseCommand):
         # pass 1: find all users in allowedGroups (or subgroup there of)
         for user in self.users:
             if user.gidNumber <= 100:
+                user.gid = grp.getgrgid(user.gidNumber)[0]
+            elif user.gidNumber == 65534:
                 user.gid = grp.getgrgid(user.gidNumber)[0]
             elif user.gidNumber in _gidNumber2gid:
                 user.gid = _gidNumber2gid[user.gidNumber]
@@ -271,8 +273,8 @@ class Command(BaseCommand):
             virts = set(chain.from_iterable([group.hid2virts[host.hid] for group in self.groups if group.gid == gid]))
             self.generate_tpl_file(dstdir, 'ssh-gitolite', users=virts, hosts=self.hosts, dstfile='ssh-gitolite-' + gid)
         self.generate_cdb_file(dstdir, 'user-forward.cdb', 'emailForward', users=host.users)
-        self.generate_cdb_file(dstdir, 'batv-tokens.cdb', 'bATVToken', users=host.users)
-        self.generate_cdb_file(dstdir, 'default-mail-options.cdb', 'mailDefaultOptions', users=host.users)
+        self.generate_cdb_file(dstdir, 'batv-tokens.cdb', 'bATVToken', users=set()) # FIXME users=host.users)
+        self.generate_cdb_file(dstdir, 'default-mail-options.cdb', 'mailDefaultOptions', users=set()) # FIXME users=host.users)
         self.link(self.dstdir, dstdir, 'disabled-accounts')
         self.link(self.dstdir, dstdir, 'mail-disable')
         self.link(self.dstdir, dstdir, 'mail-forward.cdb')
