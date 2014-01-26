@@ -93,7 +93,7 @@ class Command(BaseCommand):
         (fingerprint, content, timestamp) = verify_message(message)
         self.check_replay_cache(fingerprint, content, timestamp)
         user = get_user_from_fingerprint(fingerprint)
-        fd = io.StringIO(encoding='utf-8')
+        fd = io.StringIO()
         fd.write(u'\n===== start of processing =====\n')
         handler = Handler(fd, user, user)
         for command in content.splitlines():
