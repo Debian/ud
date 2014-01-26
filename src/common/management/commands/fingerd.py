@@ -31,7 +31,6 @@ import io
 import optparse
 import pwd
 import sys
-import traceback
 import yaml
 
 import SocketServer
@@ -121,7 +120,6 @@ class Command(BaseCommand):
                     uid = sys.stdin.readline(512).strip()
                     sys.stdout.write(handler.handle(uid).encode('utf-8'))
                 except Exception as err:
-                    print traceback.format_exc()
                     sys.stdout.write(u'error has occured\n'.encode('utf-8'))
                 finally:
                     sys.stdout.flush()
