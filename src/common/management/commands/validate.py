@@ -104,7 +104,7 @@ class Command(BaseCommand):
         except ObjectDoesNotExist:
             raise CommandError(_('user not found'))
         except ldap.INVALID_CREDENTIALS:
-            raise CommandError('invalid credentials')
+            raise CommandError(_('invalid credentials'))
         except Exception as err:
             raise CommandError(err)
 
