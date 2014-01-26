@@ -27,6 +27,8 @@ import daemon
 import io
 import optparse
 import yaml
+import pwd
+import grp
 
 import SocketServer
 
@@ -112,7 +114,7 @@ class Command(BaseCommand):
             if self.options['foreground']:
                 server.serve_forever()
             else:
-                with daemon.DaemonContext(): # TODO drop root
+                with daemon.DaemonContext(uid=pwd.getpwnam('nobody').pw_uid, gid=grp.getgrnam('nogroup').gr_gid):
                     server.serve_forever()
         except Exception as err:
             raise CommandError(err)
