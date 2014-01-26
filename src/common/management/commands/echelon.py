@@ -18,6 +18,7 @@
 #
 # Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
+# Copyright (C) 2014 Martin Zobel-Helas <zobel@debian.org>
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
@@ -28,21 +29,26 @@ import optparse
 import sys
 import time
 import yaml
+import gettext
 
 from _utilities import load_configuration_file, verify_message, get_user_from_fingerprint, get_user_from_headers
 
+# Set up message catalog access
+t = gettext.translation('ud', 'locale', fallback=True)
+_ = t.ugettext
+
 class Command(BaseCommand):
-    help = 'Watches for email activity from Debian Developers.'
+    help = _('Watches for email activity from Debian Developers.')
     option_list = BaseCommand.option_list + (
         optparse.make_option('--dryrun',
             action='store_true',
             default=False,
-            help='do not commit changes'
+            help=_('do not commit changes')
         ),
         optparse.make_option('--config',
             action='store',
             default='/etc/ud/echelon.yaml',
-            help='specify configuration file'
+            help=_('specify configuration file')
         ),
     )
 
@@ -56,11 +62,11 @@ class Command(BaseCommand):
                 else:
                     settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], DebianUser.base_dn)
             else:
-                raise CommandError('configuration file must specify username parameter')
+                raise CommandError(_('configuration file must specify username parameter'))
             if settings.config.has_key('password'):
                 settings.DATABASES['ldap']['PASSWORD'] = settings.config['password']
             else:
-                raise CommandError('configuration file must specify password parameter')
+                raise CommandError(_('configuration file must specify password parameter'))
             message = email.message_from_file(sys.stdin)
             user = None
             key = ''

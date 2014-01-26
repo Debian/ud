@@ -18,6 +18,7 @@
 #
 # Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
+# Copyright (C) 2014 Martin Zobel-Helas <zobel@debian.org>
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -27,28 +28,33 @@ from common.models import DebianHost, DebianGroup, DebianRole, DebianUser
 import getpass
 import optparse
 import ldap
+import gettext
 
 from _utilities import load_configuration_file
+
+# Set up message catalog access
+t = gettext.translation('ud', 'locale', fallback=True)
+_ = t.ugettext
 
 # TODO check unicode handling
 class Command(BaseCommand):
     args = '[uid uid ...]'
-    help = 'Validates all or specified users against validation rules.'
+    help = _('Validates all or specified users against validation rules.')
     option_list = BaseCommand.option_list + (
         optparse.make_option('-D', '--binddn',
             action='store',
             default='',
-            help='specify bind dn'
+            help=_('specify bind dn')
         ),
         optparse.make_option('-w', '--passwd',
             action='store',
             default='',
-            help='specify passwd'
+            help=_('specify passwd')
         ),
         optparse.make_option('--config',
             action='store',
             default='/etc/ud/interactive.yaml',
-            help='specify configuration file'
+            help=_('specify configuration file')
         ),
     )
 
@@ -78,7 +84,7 @@ class Command(BaseCommand):
                 self.stdout.write('\n')
                 return
         if not options['passwd']:
-            raise CommandError('must specify password')
+            raise CommandError(_('must specify password'))
         settings.DATABASES['ldap']['PASSWORD'] = options['passwd']
 
         try:
@@ -92,15 +98,15 @@ class Command(BaseCommand):
                     except ObjectDoesNotExist:
                         self.error = True
                         if options['verbosity'] > '0':
-                            self.stdout.write('nak:%s:uid does not exist\n' % (uid))
+                            self.stdout.write(_('nak:%s:uid does not exist\n' % (uid)))
             else:
                 looked_up_users = DebianUser.objects.all()
                 for looked_up_user in looked_up_users:
                     self.validate_user(looked_up_user)
             if self.error:
-                raise CommandError('validation errors detected')
+                raise CommandError(_('validation errors detected'))
         except ObjectDoesNotExist:
-            raise CommandError('user not found')
+            raise CommandError(_('user not found'))
         except ldap.INVALID_CREDENTIALS:
             raise CommandError('invalid credentials')
         except Exception as err:
