@@ -31,6 +31,7 @@ import io
 import optparse
 import pwd
 import sys
+import traceback
 import yaml
 
 import SocketServer
@@ -39,22 +40,25 @@ from _utilities import load_configuration_file
 
 class GenericHandler(object):
     def handle(self, uid):
-        fd = io.StringIO()
-        if uid.endswith('/key'):
-            uid = uid[:-4]
-            user = DebianUser.objects.get(uid=uid)
-            if user:
-                asc = user.key
-                if asc:
-                    fd.write(user.dn + '\n')
-                    fd.write(asc)
+        try:
+            fd = io.StringIO()
+            if uid.endswith('/key'):
+                uid = uid[:-4]
+                try:
+                    user = DebianUser.objects.get(uid=uid)
+                except:
+                    raise Exception('ldap entry for "%s" not found at db.debian.org' % (uid))
+                key = user.key
+                if key:
+                    fd.write(u'%s\n' %(user.dn))
+                    fd.write(u'%s\n' %(key))
                 else:
-                    raise Exception('public key for "%s" not found at db.debian.org\n' % (uid))
+                    raise Exception('public key for "%s" not found at db.debian.org' % (uid))
             else:
-                raise Exception('ldap entry for "%s" not found at db.debian.org\n' % (uid))
-        else:
-            user = DebianUser.objects.get(uid=uid)
-            if user:
+                try:
+                    user = DebianUser.objects.get(uid=uid)
+                except:
+                    raise Exception('ldap entry for "%s" not found at db.debian.org' % (uid))
                 fd.write(u'%s\n' % (user.dn))
                 fd.write(u'First name: %s\n' % (user.cn))
                 if user.mn:
@@ -72,9 +76,9 @@ class GenericHandler(object):
                 if user.keyFingerPrint:
                     fd.write(u'Fingerprint: %s\n' % (user.keyFingerPrint))
                     fd.write(u'Key block: finger %s/key@db.debian.org\n' % (user.uid))
-            else:
-                raise Exception('ldap entry for "%s" not found at db.debian.org\n' % (uid))
-        return fd.getvalue()
+            return fd.getvalue()
+        except Exception as err:
+            return u'%s\n' % (err)
 
 class FingerHandler(SocketServer.StreamRequestHandler, GenericHandler):
     def handle(self):
@@ -100,18 +104,25 @@ class Command(BaseCommand):
             default=False,
             help=_('run in the foreground')
         ),
+        optparse.make_option('--config',
+            action='store',
+            default='/etc/ud/fingerd.yaml',
+            help=_('specify configuration file')
+        ),
     )
 
     def handle(self, *args, **options):
         self.options = options
         try:
+            load_configuration_file(self.options['config'])
             if self.options['inetd']:
                 try:
                     handler = GenericHandler()
                     uid = sys.stdin.readline(512).strip()
                     sys.stdout.write(handler.handle(uid).encode('utf-8'))
                 except Exception as err:
-                    sys.stdout.write('an error has occurred')
+                    print traceback.format_exc()
+                    sys.stdout.write(u'error has occured\n'.encode('utf-8'))
                 finally:
                     sys.stdout.flush()
             else: # run as daemon
