@@ -22,6 +22,7 @@
 
 from django.conf import settings
 from django.core.management.base import CommandError
+from django.utils.translation import ugettext as _
 from common.models import DebianUser
 
 import email
@@ -33,13 +34,8 @@ import pyme.core
 import shutil
 import tempfile
 import yaml
-import gettext
 
 from datetime import datetime
-
-# Set up message catalog access
-t = gettext.translation('ud', 'locale', fallback=True)
-_ = t.ugettext
 
 def load_configuration_file(filename):
     try:

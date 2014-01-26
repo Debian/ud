@@ -23,6 +23,7 @@
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
+from django.utils.translation import ugettext as _
 from common.models import DebianHost, DebianGroup, DebianRole, DebianUser
 
 from dsa_mq.connection import Connection
@@ -48,18 +49,12 @@ import shutil
 import tarfile
 import time
 import yaml
-import gettext
 
 from StringIO import StringIO
 
 from ldap import LDAPError
 
 from _utilities import load_configuration_file
-
-# Set up message catalog access
-t = gettext.translation('ud', 'locale', fallback=True)
-_ = t.ugettext
-
 
 class Command(BaseCommand):
     help = _('Generates, on a host-by-host basis, the set of files to be replicated.')

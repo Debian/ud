@@ -22,6 +22,7 @@
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.utils.translation import ugettext as _
 from common.models import DebianUser
 
 import email
@@ -29,13 +30,8 @@ import optparse
 import sys
 import time
 import yaml
-import gettext
 
 from _utilities import load_configuration_file, verify_message, get_user_from_fingerprint, get_user_from_headers
-
-# Set up message catalog access
-t = gettext.translation('ud', 'locale', fallback=True)
-_ = t.ugettext
 
 class Command(BaseCommand):
     help = _('Watches for email activity from Debian Developers.')

@@ -23,18 +23,14 @@
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.management.base import BaseCommand, CommandError
+from django.utils.translation import ugettext as _
 from common.models import DebianHost, DebianGroup, DebianRole, DebianUser
 
 import getpass
 import optparse
 import ldap
-import gettext
 
 from _utilities import load_configuration_file
-
-# Set up message catalog access
-t = gettext.translation('ud', 'locale', fallback=True)
-_ = t.ugettext
 
 # TODO check unicode handling
 class Command(BaseCommand):

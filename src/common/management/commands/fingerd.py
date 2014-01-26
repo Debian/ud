@@ -22,21 +22,17 @@
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.utils.translation import ugettext as _
 from common.models import DebianUser
 
 import daemon
 import io
 import optparse
 import yaml
-import gettext
 
 import SocketServer
 
 from _utilities import load_configuration_file
-
-# Set up message catalog access
-t = gettext.translation('ud', 'locale', fallback=True)
-_ = t.ugettext
 
 class FingerServer(SocketServer.TCPServer):
     allow_reuse_address = True

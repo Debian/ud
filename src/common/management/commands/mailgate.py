@@ -18,10 +18,11 @@
 #
 # Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
-# Copyright (C) 2014 Marti Zobel-Helas <zobel@debian.org>
+# Copyright (C) 2014 Martin Zobel-Helas <zobel@debian.org>
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.utils.translation import ugettext as _
 from common.models import DebianUser, ReplayCache
 
 import base64
@@ -33,7 +34,6 @@ import optparse
 import smtplib
 import sys
 import time
-import gettext
 
 import StringIO
 
@@ -47,11 +47,6 @@ from email.utils import formatdate
 
 from _handler import Handler
 from _utilities import load_configuration_file, verify_message, get_user_from_fingerprint, encrypt_result
-
-# Set up message catalog access
-t = gettext.translation('ud', 'locale', fallback=True)
-_ = t.ugettext
-
 
 class Command(BaseCommand):
     help = _('Processes commands received in GPG-signed emails.')
