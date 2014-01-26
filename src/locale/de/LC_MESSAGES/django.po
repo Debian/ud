@@ -1,0 +1,214 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2014-01-26 16:16+0100\n"
+"PO-Revision-Date: 2014-01-24 15:50+0100\n"
+"Last-Translator: Martin Zobel-Helas <zobel@debian.org>\n"
+"Language-Team: \n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: common/management/commands/_utilities.py:44
+msgid "could not load configuration file"
+msgstr "Konnte Konfigurationsdatei nicht laden."
+
+#: common/management/commands/_utilities.py:46
+msgid "configuration file must specify keyrings parameter"
+msgstr "Konfigurationsdatei muss Parameter für den Schlüsselbund angeben\t"
+
+#: common/management/commands/_utilities.py:76
+msgid "malformed message: bad Reply-To header"
+msgstr "Fehlerhafte Nachricht: falsche 'Reply-To' Kopfzeile"
+
+#: common/management/commands/_utilities.py:80
+msgid "malformed message: bad From header"
+msgstr "Fehlerhafte Nachricht: falsche 'From' Kopfzeile"
+
+#: common/management/commands/_utilities.py:98
+msgid "malformed text/plain message"
+msgstr "Fehlerhafte text/plain Nachricht"
+
+#: common/management/commands/_utilities.py:106
+msgid "malformed multipart/signed message"
+msgstr "Fehlerhafte multipart/signed Nachricht"
+
+#: common/management/commands/_utilities.py:109
+msgid "malformed message: unsupported content-type"
+msgstr "Fehlerhafte Nachricht: nicht unterstützter Inhaltstyp"
+
+#: common/management/commands/_utilities.py:112
+msgid "malformed message: too few signatures"
+msgstr "fehlerhafte Nachricht: zu wenige Unterschriften"
+
+#: common/management/commands/_utilities.py:114
+msgid "malformed message: too many signatures"
+msgstr "fehlerhafte Nachricht: zu viele Unterschriften"
+
+#: common/management/commands/_utilities.py:116
+msgid "invalid signature"
+msgstr "ungültige Signatur"
+
+#: common/management/commands/echelon.py:37
+msgid "Watches for email activity from Debian Developers."
+msgstr "Hällt nach E-Mail Aktivität von Debian Entwicklern ausschau"
+
+#: common/management/commands/echelon.py:42
+#: common/management/commands/mailgate.py:62
+msgid "do not commit changes"
+msgstr "Änderungen werden nicht gespeichert"
+
+#: common/management/commands/echelon.py:47
+#: common/management/commands/fingerd.py:94
+#: common/management/commands/generate.py:70
+#: common/management/commands/mailgate.py:67
+#: common/management/commands/modgroup.py:55
+#: common/management/commands/modhost.py:54
+#: common/management/commands/moduser.py:54
+#: common/management/commands/validate.py:53
+msgid "specify configuration file"
+msgstr "Gebe Konfigurationsdatei an"
+
+#: common/management/commands/echelon.py:61
+#: common/management/commands/fingerd.py:108
+#: common/management/commands/generate.py:89
+#: common/management/commands/mailgate.py:81
+msgid "configuration file must specify username parameter"
+msgstr "Konfigurationsdatei muss Nutzernamen als Parameter angeben"
+
+#: common/management/commands/echelon.py:65
+#: common/management/commands/fingerd.py:112
+#: common/management/commands/generate.py:93
+#: common/management/commands/mailgate.py:85
+msgid "configuration file must specify password parameter"
+msgstr "Konfigurationsdatei muss Paßwort als Parameter angeben"
+
+#: common/management/commands/fingerd.py:84
+msgid "Provides a finger daemon."
+msgstr "Stellt einen Finger-Dienst zur Verfügung"
+
+#: common/management/commands/fingerd.py:89
+msgid "run in the foreground"
+msgstr "laufe im Vordergrund"
+
+#: common/management/commands/generate.py:60
+msgid "Generates, on a host-by-host basis, the set of files to be replicated."
+msgstr ""
+"Generiert auf Host-by-Host Basis die Sammlung von Dateien, welche zu "
+"replizieren sind."
+
+#: common/management/commands/generate.py:65
+msgid "force generate"
+msgstr "erzwingt generieren"
+
+#: common/management/commands/generate.py:75
+msgid "force update notification via mq"
+msgstr "erzwingt Aktualisierungs-Benachrichtigung über MQ"
+
+#: common/management/commands/generate.py:110
+msgid "unable to acquire lock"
+msgstr "Nicht möglich, ein Lockfile zu erlangen"
+
+#: common/management/commands/mailgate.py:52
+msgid "Processes commands received in GPG-signed emails."
+msgstr "Verarbeitet Befehle, welche via GPG signierten Mails empfangen werden"
+
+#: common/management/commands/mailgate.py:57
+msgid "send reply to stdout"
+msgstr "Sende Antwort nach Standardausgabe"
+
+#: common/management/commands/modgroup.py:40
+msgid "Provides an interactive attribute editor for Group entries."
+msgstr "Stellt einen interaktiven Editor für Gruppen-Einträge zur Verfügung"
+
+#: common/management/commands/modgroup.py:45
+#: common/management/commands/modhost.py:44
+#: common/management/commands/moduser.py:44
+#: common/management/commands/validate.py:43
+msgid "specify bind dn"
+msgstr "Gebe 'bind dn' an"
+
+#: common/management/commands/modgroup.py:50
+#: common/management/commands/moduser.py:49
+msgid "specify password"
+msgstr "Gebe Paßwort an"
+
+#: common/management/commands/modgroup.py:66
+msgid "must specify at most one gid as argument"
+msgstr "Es muss mindenstens eine Gruppen-ID als Argument angegeben werden"
+
+#: common/management/commands/modgroup.py:89
+#: common/management/commands/modhost.py:88
+#: common/management/commands/moduser.py:90
+#: common/management/commands/validate.py:83
+msgid "must specify password"
+msgstr "Es muss ein Paßwort angegeben werden"
+
+#: common/management/commands/modgroup.py:98
+#: common/management/commands/modhost.py:97
+#: common/management/commands/moduser.py:99
+msgid "insufficient privileges"
+msgstr "unzureichende Rechte"
+
+#: common/management/commands/modgroup.py:100
+msgid "group not found"
+msgstr "Gruppe nicht gefunden"
+
+#: common/management/commands/modgroup.py:102
+#: common/management/commands/modhost.py:101
+#: common/management/commands/moduser.py:103
+#: common/management/commands/validate.py:107
+msgid "invalid credentials"
+msgstr "Ungültige Zugangsdaten"
+
+#: common/management/commands/modhost.py:39
+msgid "Provides an interactive attribute editor for Host entries."
+msgstr "Stellt einen interaktiven Editor für Rechner-Einträge zur Verfügung"
+
+#: common/management/commands/modhost.py:49
+#: common/management/commands/validate.py:48
+msgid "specify passwd"
+msgstr "spezifiziere Passwort"
+
+#: common/management/commands/modhost.py:65
+msgid "must specify at most one hid as argument"
+msgstr "Es muss mindestens eine Host-ID als Argument angegeben werden"
+
+#: common/management/commands/modhost.py:99
+msgid "host not found"
+msgstr "Rechner nicht gefunden"
+
+#: common/management/commands/moduser.py:39
+msgid "Provides an interactive attribute editor for User entries."
+msgstr "Stellt einen interaktiven Editor für Nutzer-Einträge zur Verfügung"
+
+#: common/management/commands/moduser.py:67
+msgid "must specify at most one uid as argument"
+msgstr "Es muss mindestens eine Nutzer-ID als Argument angegeben werden"
+
+#: common/management/commands/moduser.py:101
+#: common/management/commands/validate.py:105
+msgid "user not found"
+msgstr "Nutzer nicht gefunden"
+
+#: common/management/commands/validate.py:38
+msgid "Validates all or specified users against validation rules."
+msgstr "Prüfe alle oder angegebene Nutzer anhand der Prüfregeln"
+
+#: common/management/commands/validate.py:97
+#, python-format
+msgid "nak:%s:uid does not exist\n"
+msgstr "nak:%s: Nutzer-ID existiert nicht\n"
+
+#: common/management/commands/validate.py:103
+msgid "validation errors detected"
+msgstr "Validierungsfehler gefunden"

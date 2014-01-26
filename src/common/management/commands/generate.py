@@ -17,12 +17,13 @@
 #   USA
 #
 # Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
-# Copyright (C) 2013 Martin Zobel-Helas <zobel@debian.org>
+# Copyright (C) 2013-2014 Martin Zobel-Helas <zobel@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
+from django.utils.translation import ugettext as _
 from common.models import DebianHost, DebianGroup, DebianRole, DebianUser
 
 from dsa_mq.connection import Connection
@@ -56,22 +57,22 @@ from ldap import LDAPError
 from _utilities import load_configuration_file
 
 class Command(BaseCommand):
-    help = 'Generates, on a host-by-host basis, the set of files to be replicated.'
+    help = _('Generates, on a host-by-host basis, the set of files to be replicated.')
     option_list = BaseCommand.option_list + (
         optparse.make_option('--force',
             action='store_true',
             default=False,
-            help='force generate'
+            help=_('force generate')
         ),
         optparse.make_option('--config',
             action='store',
             default='/etc/ud/generate.yaml',
-            help='specify configuration file'
+            help=_('specify configuration file')
         ),
         optparse.make_option('--mq',
             action='store_true',
             default=False,
-            help='force update notification via mq'
+            help=_('force update notification via mq')
         ),
     )
 
@@ -85,11 +86,11 @@ class Command(BaseCommand):
                 else:
                     settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], DebianUser.base_dn)
             else:
-                raise CommandError('configuration file must specify username parameter')
+                raise CommandError(_('configuration file must specify username parameter'))
             if settings.config.has_key('password'):
                 settings.DATABASES['ldap']['PASSWORD'] = settings.config['password']
             else:
-                raise CommandError('configuration file must specify password parameter')
+                raise CommandError(_('configuration file must specify password parameter'))
         except Exception as err:
             raise CommandError(err)
         self.dstdir = os.path.join(settings.CACHE_DIR, 'hosts')
@@ -106,7 +107,7 @@ class Command(BaseCommand):
                         lock_acquired = True
                     except IOError:
                         if time.time() > lock_time_out:
-                            raise Exception('unable to acquire lock')
+                            raise Exception(_('unable to acquire lock'))
                         time.sleep(2)
                 if self.options['force'] or self.need_update() :
                     with open(os.path.join(self.dstdir, 'last_update.trace'), 'w') as f:

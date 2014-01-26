@@ -18,10 +18,12 @@
 #
 # Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
+# Copyright (C) 2014 Martin Zobel-Helas <zobel@debian.org>
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management.base import BaseCommand, CommandError
+from django.utils.translation import ugettext as _
 from common.models import DebianUser
 
 import getpass
@@ -34,22 +36,22 @@ from _utilities import load_configuration_file
 
 class Command(BaseCommand):
     args = '[uid]'
-    help = 'Provides an interactive attribute editor for User entries.'
+    help = _('Provides an interactive attribute editor for User entries.')
     option_list = BaseCommand.option_list + (
         optparse.make_option('-D', '--binddn',
             action='store',
             default='',
-            help='specify bind dn'
+            help=_('specify bind dn')
         ),
         optparse.make_option('-w', '--passwd',
             action='store',
             default='',
-            help='specify password'
+            help=_('specify password')
         ),
         optparse.make_option('--config',
             action='store',
             default='/etc/ud/interactive.yaml',
-            help='specify configuration file'
+            help=_('specify configuration file')
         ),
     )
 
@@ -62,7 +64,7 @@ class Command(BaseCommand):
         elif len(args) == 1:
             looked_up_uid = args[0]
         else:
-            raise CommandError('must specify at most one uid as argument')
+            raise CommandError(_('must specify at most one uid as argument'))
 
         try:
             load_configuration_file(options['config'])
@@ -85,7 +87,7 @@ class Command(BaseCommand):
                 self.stdout.write('\n')
                 return
         if not options['passwd']:
-            raise CommandError('must specify password')
+            raise CommandError(_('must specify password'))
         settings.DATABASES['ldap']['PASSWORD'] = options['passwd']
 
         try:
@@ -94,11 +96,11 @@ class Command(BaseCommand):
             if logged_in_user.dn is looked_up_user.dn or 'adm' in logged_in_user.supplementaryGid:
                 Handler(self.stdout, looked_up_user, logged_in_user).cmdloop()
             else:
-                raise CommandError('insufficient privileges')
+                raise CommandError(_('insufficient privileges'))
         except ObjectDoesNotExist:
-            raise CommandError('user not found')
+            raise CommandError(_('user not found'))
         except ldap.INVALID_CREDENTIALS:
-            raise CommandError('invalid credentials')
+            raise CommandError(_('invalid credentials'))
         except Exception as err:
             raise CommandError(err)
 

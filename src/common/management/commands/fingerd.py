@@ -18,9 +18,11 @@
 #
 # Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
+# Copyright (C) 2014 Martin Zobel-Helas <zobel@debian.org>
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.utils.translation import ugettext as _
 from common.models import DebianUser
 
 import daemon
@@ -81,17 +83,17 @@ class FingerHandler(SocketServer.StreamRequestHandler):
             self.wfile.write(err)
 
 class Command(BaseCommand):
-    help = 'Provides a finger daemon.'
+    help = _('Provides a finger daemon.')
     option_list = BaseCommand.option_list + (
         optparse.make_option('--foreground',
             action='store_true',
             default=False,
-            help='run in the foreground'
+            help=_('run in the foreground')
         ),
         optparse.make_option('--config',
             action='store',
             default='/etc/ud/fingerd.yaml',
-            help='specify configuration file'
+            help=_('specify configuration file')
         ),  
     )
 
@@ -105,11 +107,11 @@ class Command(BaseCommand):
                 else:
                     settings.DATABASES['ldap']['USER'] = 'uid=%s,%s' % (settings.config['username'], DebianUser.base_dn)
             else:
-                raise CommandError('configuration file must specify username parameter')
+                raise CommandError(_('configuration file must specify username parameter'))
             if settings.config.has_key('password'):
                 settings.DATABASES['ldap']['PASSWORD'] = settings.config['password']
             else:
-                raise CommandError('configuration file must specify password parameter')
+                raise CommandError(_('configuration file must specify password parameter'))
             server = FingerServer(('', 79), FingerHandler)
             if self.options['foreground']:
                 server.serve_forever()

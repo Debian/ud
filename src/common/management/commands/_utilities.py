@@ -18,9 +18,11 @@
 #
 # Copyright (C) 2013-2014 Luca Filipozzi <lfilipoz@debian.org>
 # Copyright (C) 2013 Oliver Berger <obergix@debian.org>
+# Copyright (C) 2014 Martin Zobel-Helas <zobel@debian.org>
 
 from django.conf import settings
 from django.core.management.base import CommandError
+from django.utils.translation import ugettext as _
 from common.models import DebianUser
 
 import email
@@ -39,9 +41,9 @@ def load_configuration_file(filename):
     try:
         settings.config = yaml.safe_load(open(filename))
     except Exception as err:
-        raise Exception('could not load configuration file')
+        raise Exception(_('could not load configuration file'))
     if not settings.config.has_key('keyrings'):
-        raise Exception('configuration file must specify keyrings parameter')
+        raise Exception(_('configuration file must specify keyrings parameter'))
 
 def encrypt_result(result, fingerprint):
     try:
@@ -71,11 +73,11 @@ def verify_message(message):
     if message.get('Reply-To'):
         (x,y) = email.utils.parseaddr(message.get('Reply-To'))
         if not y:
-            raise Exception('malformed message: bad Reply-To header')
+            raise Exception(_('malformed message: bad Reply-To header'))
     elif message.get('From'):
         (x,y) = email.utils.parseaddr(message.get('From'))
         if not y:
-            raise Exception('malformed message: bad From header')
+            raise Exception(_('malformed message: bad From header'))
     try:
         tmpdir = tempfile.mkdtemp()
         with open(os.path.join(tmpdir, 'gpg.conf'), 'w') as f:
@@ -93,7 +95,7 @@ def verify_message(message):
                 ctx.op_verify(signature, None, plaintext)
                 plaintext.seek(0,0)
             except Exception as err:
-                raise Exception('malformed text/plain message')
+                raise Exception(_('malformed text/plain message'))
             content = plaintext.read()
         elif message.get_content_type() == 'multipart/signed':
             try: # detached signature
@@ -101,17 +103,17 @@ def verify_message(message):
                 signature = pyme.core.Data(message.get_payload(1).as_string())
                 ctx.op_verify(signature, signedtxt, None)
             except:
-                raise Exception('malformed multipart/signed message')
+                raise Exception(_('malformed multipart/signed message'))
             content = message.get_payload(0).get_payload(decode=True)
         else:
-            raise Exception('malformed message: unsupported content-type')
+            raise Exception(_('malformed message: unsupported content-type'))
         result = ctx.op_verify_result()
         if len(result.signatures) == 0:
-            raise Exception('malformed message: too few signatures')
+            raise Exception(_('malformed message: too few signatures'))
         if len(result.signatures) >= 2:
-            raise Exception('malformed message: too many signatures')
+            raise Exception(_('malformed message: too many signatures'))
         if result.signatures[0].status != 0:
-            raise Exception('invalid signature')
+            raise Exception(_('invalid signature'))
         fingerprint = ctx.get_key(result.signatures[0].fpr, 0).subkeys[0].fpr
         timestamp = datetime.fromtimestamp(result.signatures[0].timestamp)
         return (fingerprint, content, timestamp)
