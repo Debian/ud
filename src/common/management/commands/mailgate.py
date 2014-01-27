@@ -112,7 +112,7 @@ class Command(BaseCommand):
         return encrypt_result(fd.getvalue().encode('utf-8'), fingerprint)
 
     def check_replay_cache(self, fingerprint, content, timestamp):
-        digest = base64.b64encode(hashlib.sha512(content).digest())
+        digest = base64.b64encode(hashlib.sha512(content + timestamp.strftime('%Y%m%dT%H%M%S%f%z')).digest())
         for entry in ReplayCache.objects.filter(fingerprint=fingerprint):
             if entry.timestamp < datetime.now() - timedelta(days=7):
                 entry.delete() # delete stale entries
@@ -136,7 +136,7 @@ class Command(BaseCommand):
             msg = MIMEMultipart('encrypted', protocol='application/pgp-encrypted')
             msg['From'] = from_mailaddr
             msg['To'] = to
-            msg['Subject'] = 'ud-mailgate processing results'
+            msg['Subject'] = 'ud mailgate processing results'
             msg['Message-Id'] = make_msgid()
             msg['In-Reply-To'] = message['Message-Id']
             msg['Date'] = formatdate(localtime=True)

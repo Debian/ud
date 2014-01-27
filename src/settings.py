@@ -35,7 +35,7 @@ MANAGERS = ADMINS
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(CACHE_DIR, 'replaycache.sqlite3'),
+        'NAME': os.path.join(CACHE_DIR, 'mail', 'replaycache.sqlite3'),
     },
     'ldap': {
     	'ENGINE': 'ldapdb.backends.ldap',
