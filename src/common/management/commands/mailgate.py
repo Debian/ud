@@ -109,6 +109,7 @@ class Command(BaseCommand):
             else:
                 user.save()
         fd.write(u'===== end of processing =====\n')
+        fd.write(u'see https://dsa.debian.org/howto/ud/ for help\n')
         return encrypt_result(fd.getvalue().encode('utf-8'), fingerprint)
 
     def check_replay_cache(self, fingerprint, content, timestamp):
