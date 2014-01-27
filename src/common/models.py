@@ -35,6 +35,7 @@ import email.utils
 import json
 import hashlib
 import hmac
+import math
 import os
 import pycountry
 import pyme.core
@@ -50,41 +51,6 @@ from IPy import IP
 from M2Crypto import RSA, m2
 
 thismodule = sys.modules[__name__]
-
-def DecDegree(Posn, Anon=False): # FIXME ick... replace with geopy?
-    Parts = re.match('[-+]?(\d*)\\.?(\d*)',Posn).groups();
-    Val = float(Posn);
-
-    if (abs(Val) >= 1806060.0):
-        return 'ERROR'
-
-    # Val is in DGMS
-    if abs(Val) >= 18060.0 or len(Parts[0]) > 5:
-        Val = Val/100.0
-        Secs = Val - long(Val)
-        Val = long(Val)/100.0
-        Min = Val - long(Val)
-        Val = long(Val) + (Min*100.0 + Secs*100.0/60.0)/60.0
-
-    # Val is in DGM
-    elif abs(Val) >= 180 or len(Parts[0]) > 3:
-        Val = Val/100.0
-        Min = Val - long(Val)
-        Val = long(Val) + Min*100.0/60.0
-
-    if Anon != 0:
-        Str = "%3.2f"%(Val)
-    else:
-        Str = str(Val)
-    if Val >= 0:
-        return "+" + Str
-    return Str
-
-def make_hmac(key, val):
-    return hmac.new(key, val, hashlib.sha1).hexdigest()
-
-def make_passwd_hmac(key, status, purpose, uid, uuid, hostnames, password):
-    return make_hmac(key, ':'.join([status, purpose, uid, uuid, hostnames, password]))
 
 def validate_dns_labels(val):
     disallowed = re.compile('[^_A-Z\d-]', re.IGNORECASE)
@@ -307,7 +273,7 @@ def validate_labeledURI(val):
     return # TODO
 
 def validate_latitude(val):
-    return # TODO otherwise have to handle poor quality data (see DecDegree)
+    return # TODO otherwise have to handle poor quality data (see _get_marker)
 
 def validate_loginShell(val):
     try:
@@ -320,7 +286,7 @@ def validate_loginShell(val):
         raise ValidationError('value is not a valid login shell')
 
 def validate_longitude(val):
-    return # TODO otherwise have to handle poor quality data (see DecDegree)
+    return # TODO otherwise have to handle poor quality data (see _get_marker)
 
 def validate_mailCallout(val):
     validator = (
@@ -379,6 +345,9 @@ def validate_mn(val):
     return # TODO
 
 def validate_privateSub(val):
+    return # TODO
+
+def validate_rtcPassword(val):
     return # TODO
 
 def validate_sn(val):
@@ -484,9 +453,6 @@ def validate_supplementaryGid(val):
         raise ValidationError('not a valid group')
 
 def validate_userPassword(val):
-    return # TODO
-
-def validate_rtcPassword(val):
     return # TODO
 
 def validate_webPassword(val):
@@ -1313,6 +1279,12 @@ class __BaseClass(object):
             raise ValidationError(errors)
 
     def sudoPasswordForHost(self, host):
+        def compute_hmac(uid, uuid, hostnames, password):
+            key = settings.config['hmac_key']
+            status = 'password-is-confirmed'
+            purpose = 'sudo'
+            return hmac.new(key, ':'.join([status, purpose, uid, uuid, hostnames, password]), hashlib.sha1).hexdigest()
+
         sudoPasswordForHost = '*'
         for entry in self.sudoPassword:
             match = re.compile('^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) (confirmed:[0-9a-f]{40}|unconfirmed) ([a-z0-9.,*]+) ([^ ]+)$').match(entry)
@@ -1325,7 +1297,7 @@ class __BaseClass(object):
             host_is_untrusted = ('UNTRUSTED' in host.exportOptions) or ('NOPASSWD' in host.exportOptions)
             apply_to_all_hosts = hostnames == '*'
             apply_to_this_host = host.hostname in hostnames.split(',')
-            if status != 'confirmed:' + make_passwd_hmac(settings.config['hmac_key'], 'password-is-confirmed', 'sudo', self.uid, uuid, hostnames, sudoPassword):
+            if status != 'confirmed:' + compute_hmac(self.uid, uuid, hostnames, sudoPassword):
                 continue # entry is not confirmed so continue searching
             if not (apply_to_all_hosts or apply_to_this_host):
                 continue # entry applies neither globally nor specifically so continue searching
@@ -1344,14 +1316,33 @@ class DebianUser(__LdapInetOrgPerson, __LdapDebianAccount, __LdapShadowAccount, 
     object_classes = ['debianDeveloper']
     base_dn = 'ou=users,dc=debian,dc=org'
 
-    def _get_latitude_as_decdegree(self): # FIXME ick ... bad data in, bad data out
-        return DecDegree(self.latitude, True)
-    latitude_as_decdegree = property(_get_latitude_as_decdegree)
+    def _get_marker(self):
+        def dms2dd(x): # DMS to DecDeg
+            x,s = divmod(x,100)
+            d,m = divmod(x,100)
+            return d + m/60.0 + s/3600.0
 
-    def _get_longitude_as_decdegree(self): # FIXME ick ... bad data in, bad data out
-        return DecDegree(self.longitude, True)
-    longitude_as_decdegree = property(_get_longitude_as_decdegree)
+        def md2dd(x): # MinDec to DecDeg
+            d,m = divmod(x,100)
+            return d + m/60.0
 
+        def val2dd(x):
+            y = float(x)
+            z = abs(y)
+            if z > 1800000.0:
+                raise ValueError()
+            elif z > 18000.0 or re.match(r'[-+]?(\d{6,})([.]\d*)?', x):
+                z = dms2dd(z)
+            elif z > 180.0 or re.match(r'[-+]?(\d{4,})([.]\d*)?', x):
+                z = md2dd(z)
+            return '%+3.2f' % math.copysign(z, y)
+
+        try:
+            return '%8s %8s ""' % (val2dd(self.latitude), val2dd(self.longitude))
+        except:
+            return None
+    marker = property(_get_marker)
+        
 
 class DebianRole(__LdapDebianAccount, __LdapShadowAccount, __LdapDebianRoleAccount, __BaseClass):
     object_classes = ['debianRoleAccount']

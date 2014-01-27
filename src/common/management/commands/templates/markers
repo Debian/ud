@@ -1,8 +1,6 @@
 ## vim: set ft=mako:
 % for i, user in enumerate(users):
-%     if user.is_not_retired() and user.has_active_password() and hasattr(user, 'latitude') and hasattr(user, 'longitude') and user.latitude and user.longitude:
-%         if user.latitude_as_decdegree != 'ERROR' and user.longitude_as_decdegree != 'ERROR':
-${"%8s" % (user.latitude_as_decdegree)} ${"%8s" % (user.longitude_as_decdegree)} ""
-%         endif
+%     if user.is_not_retired() and user.has_active_password() and hasattr(user, 'marker') and user.marker:
+${"%s" % (user.marker)}
 %     endif
 % endfor
