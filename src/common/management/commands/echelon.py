@@ -88,6 +88,7 @@ class Command(BaseCommand):
                     sys.stdout.write('%s: %s\n' % (key, val))
                 else:
                     user.do_update(key, val)
+                    user.save()
         except Exception as err:
             raise CommandError(err)
 
