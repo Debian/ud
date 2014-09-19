@@ -270,9 +270,11 @@ class Command(BaseCommand):
         self.generate_tpl_file(dstdir, 'sudo-passwd', users=host.users, host=host)
         self.generate_tpl_file(dstdir, 'shadow.tdb', users=host.users, guard=('NOPASSWD' not in host.exportOptions))
         self.generate_tpl_file(dstdir, 'bsmtp', users=self.users, host=host, guard=('BSMTP' in host.exportOptions))
-        for gid in [match.group(1) for match in (re.search('GITOLITE=(.+)', exportOption) for exportOption in host.exportOptions) if match]:
+        for gid, extra in [match.groups() for match in (re.search('GITOLITE=(.+?)(?:,(.*))?$', exportOption) for exportOption in host.exportOptions) if match]:
+            extra = extra.split(',') if extra is not None else []
+            hosts = [] if 'nohosts' in extra else self.hosts
             virts = set(chain.from_iterable([group.hid2virts[host.hid] for group in self.groups if group.gid == gid]))
-            self.generate_tpl_file(dstdir, 'ssh-gitolite', users=virts, hosts=self.hosts, dstfile='ssh-gitolite-' + gid)
+            self.generate_tpl_file(dstdir, 'ssh-gitolite', users=virts, hosts=hosts, dstfile='ssh-gitolite-' + gid)
         self.generate_cdb_file(dstdir, 'user-forward.cdb', 'emailForward', users=host.users)
         self.generate_cdb_file(dstdir, 'batv-tokens.cdb', 'bATVToken', users=set()) # FIXME users=host.users)
         self.generate_cdb_file(dstdir, 'default-mail-options.cdb', 'mailDefaultOptions', users=set()) # FIXME users=host.users)
