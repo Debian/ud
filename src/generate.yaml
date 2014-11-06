@@ -3,5 +3,5 @@ password: 'password'
 hmac_key: 'hmac_key'
 keyrings: # keyrings or keyring directories to sync
   - "/usr/share/keyrings/debian-keyring.gpg"
-  - "/org/keyring.debian.org/keyrings/debian-maintainers.gpg"
-  - "/org/keyring.debian.org/keyrings/debian-nonupload.gpg"
+  - "/srv/keyring.debian.org/keyrings/debian-maintainers.gpg"
+  - "/srv/keyring.debian.org/keyrings/debian-nonupload.gpg"
