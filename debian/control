@@ -2,7 +2,11 @@ Source: ud
 Section: admin
 Priority: extra
 Maintainer: Luca Filipozzi <lfilipoz@debian.org>
-Build-Depends: debhelper (>= 9.0.0), dh-python, python-all, python-setuptools
+Build-Depends:
+ debhelper (>= 9.0.0),
+ dh-python,
+ python-all,
+ python-setuptools,
 X-Python-Version: >= 2.7
 Standards-Version: 3.9.3
 Homepage: https://github.com/LucaFilipozzi/ud
@@ -11,9 +15,21 @@ Vcs-Browser: https://github.com/LucaFilipozzi/ud
 
 Package: ud
 Architecture: all
-Depends: ${python:Depends}, ${misc:Depends}, ca-certificates, debian-keyring,
- python-daemon, python-django, python-django-ldapdb, python-ipy, python-lockfile,
- python-m2crypto, python-mako, python-pycountry, python-pyme, python-pyparsing
+Depends:
+ ca-certificates,
+ debian-keyring,
+ python-daemon,
+ python-django,
+ python-django-ldapdb,
+ python-ipy,
+ python-lockfile,
+ python-m2crypto,
+ python-mako,
+ python-pycountry,
+ python-pyme,
+ python-pyparsing,
+ ${misc:Depends},
+ ${python:Depends},
 Description: django-based reimplementation of Debian's userdir-ldap ud provides
  Debian System Administrators with utilities to manage User, Group, Host and
  Role entries in Debian's LDAP; and provides end users with the ability to
