@@ -120,7 +120,7 @@ class Command(BaseCommand):
                     uid = sys.stdin.readline(512).strip()
                     sys.stdout.write(handler.handle(uid).encode('utf-8'))
                 except Exception as err:
-                    sys.stdout.write(u'error has occured\n'.encode('utf-8'))
+                    sys.stdout.write(u'error has occurred\n'.encode('utf-8'))
                 finally:
                     sys.stdout.flush()
             else: # run as daemon
