@@ -27,7 +27,7 @@ from django.db import models
 from ldapdb.models.fields import CharField, IntegerField, ListField
 import ldapdb.models
 import ldap
-ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, '/etc/ssl/certs/ca-certificates.crt')
+ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, '/etc/ssl/ca-global/AddTrust_External_Root.pem')
 
 import base64
 import datetime
