@@ -1287,7 +1287,7 @@ class __BaseClass(object):
 
         sudoPasswordForHost = '*'
         for entry in self.sudoPassword:
-            match = re.compile('^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) (confirmed:[0-9a-f]{40}|unconfirmed) ([a-z0-9.,*]+) ([^ ]+)$').match(entry)
+            match = re.compile('^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) (confirmed:[0-9a-f]{40}|unconfirmed) ([a-z0-9.,*-]+) ([^ ]+)$').match(entry)
             if match == None:
                 continue # invalid entry so continue searching
             uuid = match.group(1)
