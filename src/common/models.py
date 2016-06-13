@@ -1185,8 +1185,8 @@ class __BaseClass(object):
         return False
 
     def is_guest_account(self):
-        if settings.config.has_key('guestGid'):
-            if self.gidNumber == settings.config['guestGid']:
+        if settings.config.has_key('guestGroup'):
+           if settings.config['guestGroup'] in self.supplementaryGid:
                 return True
         return False
 
