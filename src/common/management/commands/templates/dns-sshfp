@@ -14,9 +14,9 @@ ${host.hostname}.	${host.dnsTTL or '1h'}	IN	SSHFP	1 1 ${hashlib.new('sha1', base
 %         endfor
 %         if host.architecture:
 %             if host.machine:
-${host.hostname}.	${host.dnsTTL or '1h'}	IN	HINFO	"${host.architecture} ${host.machine}" "Debian GNU/Linux"
+${host.hostname}.	${host.dnsTTL or '1h'}	IN	HINFO	"${host.architecture} ${host.machine}" "Debian"
 %             else:
-${host.hostname}.	${host.dnsTTL or '1h'}	IN	HINFO	"${host.architecture}" "Debian GNU/Linux"
+${host.hostname}.	${host.dnsTTL or '1h'}	IN	HINFO	"${host.architecture}" "Debian"
 %             endif
 %         endif
 %         if host.mXRecord:
